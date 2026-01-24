@@ -1,0 +1,15 @@
+{
+    "mcpServers": {
+        "stitch": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@_davideast/stitch-mcp",
+                "proxy"
+            ],
+            "env": {
+                "STITCH_PROJECT_ID": "pdf-to-markdown-483017"
+            }
+        }
+    }
+}
