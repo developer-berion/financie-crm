@@ -1,73 +1,73 @@
-# React + TypeScript + Vite
+# Financie CRM - Sistema de Automatización de Leads
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+CRM personalizado construido con React, Vite y Supabase para la gestión automatizada de leads provenientes de Meta (Facebook/Instagram Ads). Integra servicios de Twilio y ElevenLabs para un seguimiento multicanal inmediato.
 
-Currently, two official plugins are available:
+## 🚀 Características Principales
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **Gestión de Leads:** Dashboard completo para visualizar, filtrar y gestionar leads.
+- **Automatización Inmediata:**  
+  - SMS de bienvenida personalizado (vía Twilio) al instante de recibir el lead.
+  - Llamada de Inteligencia Artificial (vía ElevenLabs) 5 minutos después.
+- **Lógica de Reintentos Inteligente:**
+  - Las llamadas solo se realizan en ventanas horarias específicas: **9 AM, 1 PM y 7 PM**.
+  - Si no hay respuesta, el sistema reintenta 3 veces por bloque (cada 5 minutos).
+  - Si el lead responde, la secuencia se detiene automáticamente.
+- **Pipeline Visual:** Vista Kanban para mover leads entre etapas de venta.
+- **Seguridad:** Acceso restringido vía RLS (Row Level Security) en Supabase.
 
-## React Compiler
+## 🛠 Arquitectura y Tecnologías
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Frontend:** React + TypeScript + Vite + TailwindCSS.
+- **Backend:** Supabase (PostgreSQL, Auth, Edge Functions, Cron Jobs).
+- **Integraciones:**
+  - **Twilio:** Envío de SMS transaccionales.
+  - **ElevenLabs:** Agente de voz AI para llamadas salientes.
+  - **Meta/Make:** Webhook para recepción de leads.
 
-## Expanding the ESLint configuration
+## ⚙️ Configuración del Proyecto
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### Variables de Entorno (.env.local)
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```env
+VITE_SUPABASE_URL=https://[TU_PROYECTO].supabase.co
+VITE_SUPABASE_ANON_KEY=[TU_CLAVE_PUBLICA]
+VITE_USE_MOCK_DATA=false
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### Webhooks y Edge Functions
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+1. **`meta_webhook`**: Recibe el payload de Meta/Make.
+   - URL: `https://[PROYECTO].supabase.co/functions/v1/meta_webhook`
+   - Acción: Guarda el lead, envía SMS y programa la llamada.
+   
+2. **`sms_webhook`**: Recibe estados de Twilio y mensajes entrantes.
+   
+3. **`call_dispatcher`**: Cron Job que corre cada 5 minutos.
+   - Acción: Revisa la tabla `call_schedules` y dispara llamadas ElevenLabs si está dentro del horario y ventana de reintento.
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### Base de Datos
+
+El esquema incluye tablas clave como:
+- `leads`: Información central del contacto.
+- `lead_events`: Log inmutable de todas las acciones (SMS enviado, Llamada realizada, Nota agregada).
+- `call_schedules`: Control del estado de los reintentos automáticos.
+
+## 📦 Despliegue (Hostinger)
+
+1. Ejecutar el comando de construcción:
+   ```bash
+   npm run build
+   ```
+2. El contenido de la carpeta `/dist` está listo para producción.
+3. Subir todos los archivos de `/dist` a la carpeta `public_html` en el File Manager de Hostinger.
+4. Asegurarse de incluir el archivo `.htaccess` (ya incluido en el build) para el manejo de rutas de React Router.
+
+## 🔄 Flujo de Git
+
+El proyecto ya tiene un repositorio git local inicializado con todos los cambios hasta la fecha (Features de Twilio, ElevenLabs, Nuevos campos de Meta).
+
+Para subir a un repositorio remoto (GitHub/GitLab):
+```bash
+git remote add origin [URL_DE_TU_REPO]
+git push -u origin master
 ```
