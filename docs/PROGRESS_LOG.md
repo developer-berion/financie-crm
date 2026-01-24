@@ -15,5 +15,6 @@
   - Implementación de `call_dispatcher` en Supabase con lógica de ventanas horarias.
   - Configuración de Webhooks y secretos en Supabase.
   - Pruebas exitosas de despliegue de Edge Functions.
+  - **Actualización:** Cambio de número de teléfono de Twilio a (786) 321-2663.
 - **Decisiones tomadas:** Cambio de estrategia de SMS inicial a ElevenLabs Call 5 min después para maximizar conversión.
 - **Próximo:** Empaquetar el proyecto para Hostinger.
