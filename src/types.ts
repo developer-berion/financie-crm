@@ -11,6 +11,9 @@ export interface Lead {
   marketing_consent: boolean;
   created_at: string;
   updated_at: string;
+  state?: string;
+  terms_accepted?: boolean;
+  meta_created_at?: string;
 }
 
 export interface PipelineStage {

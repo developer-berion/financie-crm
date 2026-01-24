@@ -70,6 +70,12 @@ serve(async (req) => {
       const fullName = getField('full_name') || getField('name') || 'Unknown Lead';
       const phone = getField('phone_number') || getField('phone');
       const email = getField('email');
+      const state = getField('state') || getField('region');
+      
+      // Note: Terms are implicit if they submitted the form, but we can check if there's a specific field.
+      // Usually Meta doesn't send a "terms" field unless custom. We default to true if it comes from here.
+      const termsAccepted = true; 
+      const metaCreatedAt = leadData.created_time; // Standard Meta field
 
       if (!phone) {
         // Without phone, we can't reliably process call logic (or strict constraint)
@@ -92,6 +98,8 @@ serve(async (req) => {
         eventType = 'lead.updated_possible_duplicate';
         await supabase.from('leads').update({
             updated_at: new Date().toISOString(),
+            state: state,
+            meta_created_at: metaCreatedAt
             // optionally update other fields?
         }).eq('id', leadId);
       } else {
@@ -102,6 +110,9 @@ serve(async (req) => {
             meta_lead_id: leadgenId,
             source: 'meta',
             status: 'Nuevo',
+            state: state,
+            terms_accepted: termsAccepted,
+            meta_created_at: metaCreatedAt
             // Default stage? We let default value handle it or fetch the ID of "Lead Nuevo"
         }).select().single();
         

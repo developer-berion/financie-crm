@@ -180,6 +180,30 @@ export default function LeadDetail() {
                                     )}
                                 </dd>
                             </div>
+                            <div className="sm:col-span-1">
+                                <dt className="text-gray-500">Estado/Región</dt>
+                                <dd className="mt-1 text-gray-900">{lead.state || '-'}</dd>
+                            </div>
+                            <div className="sm:col-span-1">
+                                <dt className="text-gray-500">Términos y Condiciones</dt>
+                                <dd className="mt-1">
+                                    {lead.terms_accepted ? (
+                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                            Aceptado
+                                        </span>
+                                    ) : (
+                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                            No Aceptado
+                                        </span>
+                                    )}
+                                </dd>
+                            </div>
+                            <div className="sm:col-span-1">
+                                <dt className="text-gray-500">Fecha Creación Meta</dt>
+                                <dd className="mt-1 text-gray-900">
+                                    {lead.meta_created_at ? new Date(lead.meta_created_at).toLocaleString() : '-'}
+                                </dd>
+                            </div>
                         </dl>
                     </div>
                 </div>

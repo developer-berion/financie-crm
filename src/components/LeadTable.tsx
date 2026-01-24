@@ -46,6 +46,8 @@ export default function LeadTable({ leads, title = 'Reporte de Leads' }: LeadTab
                             <th className="px-8 py-4 text-xs font-bold text-[#414042]/60 uppercase tracking-wider">Origen</th>
                             <th className="px-8 py-4 text-xs font-bold text-[#414042]/60 uppercase tracking-wider">Estado</th>
                             <th className="px-8 py-4 text-xs font-bold text-[#414042]/60 uppercase tracking-wider">Fecha</th>
+                            <th className="px-8 py-4 text-xs font-bold text-[#414042]/60 uppercase tracking-wider">Estado/Región</th>
+                            <th className="px-8 py-4 text-xs font-bold text-[#414042]/60 uppercase tracking-wider">Términos</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-[#d9d9d9]">
@@ -84,6 +86,12 @@ export default function LeadTable({ leads, title = 'Reporte de Leads' }: LeadTab
                                         month: '2-digit',
                                         year: 'numeric'
                                     })}
+                                </td>
+                                <td className="px-8 py-5 text-sm text-[#414042]/70 font-medium">
+                                    {lead.state || '-'}
+                                </td>
+                                <td className="px-8 py-5 text-sm text-[#414042]/70 font-medium">
+                                    {lead.terms_accepted ? '✅' : '❌'}
                                 </td>
                             </tr>
                         ))}
