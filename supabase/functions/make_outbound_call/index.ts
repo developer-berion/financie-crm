@@ -36,7 +36,7 @@ serve(async (req) => {
 
         // 3. Get Secrets
         const apiKey = Deno.env.get('ELEVENLABS_API_KEY');
-        const agentId = 'agent_4101kf6gqfgpfrganck3s1m0ap3v'; // User provided
+        const agentId = 'agent_4101kf6gqfgpfrganck3s1m0ap3v'; // Reverted to original ID as per user request
         
         // This secret needs to be set after buying a number
         const phoneId = Deno.env.get('ELEVENLABS_PHONE_ID') || Deno.env.get('ELEVENLABS_PHONE_NUMBER_ID');
@@ -59,21 +59,28 @@ serve(async (req) => {
         
         // Validating phone number format (E.164 usually required)
         // Simple cleanup:
-        const phone = lead.phone.replace(/\D/g, ''); 
-        // Assuming user stores it as +1..., if not we might need to prepend +
-        const formattedPhone = phone.startsWith('1') || phone.startsWith('5') ? `+${phone}` : `+${phone}`; 
-
+        let phone = lead.phone.replace(/\D/g, ''); 
+        
+        // If 10 digits, assume US/Canada and add 1
+        if (phone.length === 10) {
+            phone = '1' + phone;
+        }
+        
+        const formattedPhone = `+${phone}`; 
+        
         const payload = {
             agent_id: agentId,
-            recipient_phone_number: formattedPhone,
-            dynamic_variables: {
-                lead_name: lead.full_name
+            agent_phone_number_id: phoneId,
+            to_number: formattedPhone,
+            conversation_initiation_client_data: {
+                dynamic_variables: {
+                    lead_name: lead.full_name
+                }
             }
         };
 
-        // Note: If using a specific phone_id, the API might be different or require it in payload
-        // If we use the "Trigger Call" endpoint:
-        const response = await fetch('https://api.elevenlabs.io/v1/convai/phone-calls', {
+        // Endpoint: POST https://api.elevenlabs.io/v1/convai/twilio/outbound-call
+        const response = await fetch('https://api.elevenlabs.io/v1/convai/twilio/outbound-call', {
             method: 'POST',
             headers: {
                 'xi-api-key': apiKey,

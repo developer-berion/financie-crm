@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { cn } from '../lib/utils';
 import type { Lead } from '../types';
 
@@ -26,6 +27,26 @@ export default function LeadTable({ leads, title = 'Reporte de Leads' }: LeadTab
         }
     };
 
+
+
+    const getCallStatusColor = (status?: string) => {
+        switch (status) {
+            case 'exitosa': return 'bg-green-100 text-green-700';
+            case 'rechazada': return 'bg-red-100 text-red-700';
+            case 'sin_respuesta': return 'bg-orange-100 text-orange-700';
+            default: return 'bg-gray-100 text-gray-400';
+        }
+    };
+
+    const getCallStatusText = (status?: string) => {
+        switch (status) {
+            case 'exitosa': return 'Exitosa';
+            case 'rechazada': return 'Rechazada';
+            case 'sin_respuesta': return 'Sin respuesta';
+            default: return '-';
+        }
+    };
+
     return (
         <div className="bg-[#ffffff] rounded-[2rem] shadow-xl border border-[#d9d9d9] overflow-hidden">
             <div className="px-8 py-6 border-b border-[#d9d9d9] flex justify-between items-center bg-gray-50/50">
@@ -43,11 +64,10 @@ export default function LeadTable({ leads, title = 'Reporte de Leads' }: LeadTab
                             <th className="px-8 py-4 text-xs font-bold text-[#414042]/60 uppercase tracking-wider">Lead</th>
                             <th className="px-8 py-4 text-xs font-bold text-[#414042]/60 uppercase tracking-wider">Email</th>
                             <th className="px-8 py-4 text-xs font-bold text-[#414042]/60 uppercase tracking-wider">Teléfono</th>
-                            <th className="px-8 py-4 text-xs font-bold text-[#414042]/60 uppercase tracking-wider">Origen</th>
-                            <th className="px-8 py-4 text-xs font-bold text-[#414042]/60 uppercase tracking-wider">Estado</th>
+                            <th className="px-8 py-4 text-xs font-bold text-[#414042]/60 uppercase tracking-wider">Estatus</th>
                             <th className="px-8 py-4 text-xs font-bold text-[#414042]/60 uppercase tracking-wider">Fecha</th>
-                            <th className="px-8 py-4 text-xs font-bold text-[#414042]/60 uppercase tracking-wider">Estado/Región</th>
-                            <th className="px-8 py-4 text-xs font-bold text-[#414042]/60 uppercase tracking-wider">Términos</th>
+                            <th className="px-8 py-4 text-xs font-bold text-[#414042]/60 uppercase tracking-wider">Estado</th>
+                            <th className="px-8 py-4 text-xs font-bold text-[#414042]/60 uppercase tracking-wider">Llamada</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-[#d9d9d9]">
@@ -57,20 +77,18 @@ export default function LeadTable({ leads, title = 'Reporte de Leads' }: LeadTab
                                     {startIndex + index + 1}
                                 </td>
                                 <td className="px-8 py-5">
-                                    <span className="text-sm font-bold text-[#414042] group-hover:text-black transition-colors">
+                                    <Link
+                                        to={`/leads/${lead.id}`}
+                                        className="text-sm font-bold text-[#414042] hover:text-[#f6c71e] transition-colors cursor-pointer"
+                                    >
                                         {lead.full_name}
-                                    </span>
+                                    </Link>
                                 </td>
                                 <td className="px-8 py-5 text-sm text-[#414042] font-medium">
                                     {lead.email || '-'}
                                 </td>
                                 <td className="px-8 py-5 text-sm text-[#414042] font-medium">
                                     {lead.phone}
-                                </td>
-                                <td className="px-8 py-5">
-                                    <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-50 text-[#414042]/70 border border-[#d9d9d9]">
-                                        {lead.source}
-                                    </span>
                                 </td>
                                 <td className="px-8 py-5">
                                     <span className={cn(
@@ -90,8 +108,14 @@ export default function LeadTable({ leads, title = 'Reporte de Leads' }: LeadTab
                                 <td className="px-8 py-5 text-sm text-[#414042]/70 font-medium">
                                     {lead.state || '-'}
                                 </td>
-                                <td className="px-8 py-5 text-sm text-[#414042]/70 font-medium">
-                                    {lead.terms_accepted ? '✅' : '❌'}
+
+                                <td className="px-8 py-5">
+                                    <span className={cn(
+                                        "inline-flex items-center px-3 py-1 rounded-full text-xs font-bold shadow-sm",
+                                        getCallStatusColor(lead.call_status)
+                                    )}>
+                                        {getCallStatusText(lead.call_status)}
+                                    </span>
                                 </td>
                             </tr>
                         ))}

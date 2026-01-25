@@ -9,6 +9,7 @@ interface Lead {
     full_name: string;
     phone: string;
     status: string;
+    state: string;
     source: string;
     created_at: string;
     pipeline_stages: {
@@ -34,6 +35,7 @@ export default function Leads() {
         full_name,
         phone,
         status,
+        state,
         source,
         created_at,
         pipeline_stages (
@@ -113,8 +115,8 @@ export default function Leads() {
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{lead.phone}</td>
                                     <td className="px-6 py-4 whitespace-nowrap">
-                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                            {lead.status}
+                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 capitalize">
+                                            {lead.state || 'N/A'}
                                         </span>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">

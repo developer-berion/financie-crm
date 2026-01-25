@@ -127,43 +127,9 @@ serve(async (req) => {
         payload: leadData
       });
 
-      // 6. Immediate SMS & Schedule Call (if new)
-      if (eventType === 'lead.received.meta') {
-          // A. Trigger Immediate SMS
-          const smsBody = `Hola ${fullName} hemos recibido tus datos a través de nuestra campaña de Facebool e Instagram. Un agente se pondrá en contacto contigo en los próximos minutos`;
-          const smsResult = await sendSms(phone, smsBody);
-
-          await supabase.from('integration_logs').insert({
-              provider: 'twilio',
-              status: smsResult.success ? 'sent' : 'failed',
-              message_safe: `Immediate SMS to ${phone}`,
-              payload_ref: { sms_sid: smsResult.sid, error: smsResult.error },
-              external_id: smsResult.sid
-          });
-
-          await supabase.from('lead_events').insert({
-              lead_id: leadId,
-              event_type: 'sms.immediate_sent',
-              payload: { success: smsResult.success, sid: smsResult.sid }
-          });
-
-          // B. Create Call Schedule (Scheduled for 5 mins from now)
-          const nextAttempt = new Date(new Date().getTime() + (5 * 60 * 1000));
-          
-          await supabase.from('call_schedules').insert({
-              lead_id: leadId,
-              next_attempt_at: nextAttempt.toISOString(),
-              attempts_today: 0,
-              retry_count_block: 0,
-              active: true
-          });
-          
-          await supabase.from('lead_events').insert({
-             lead_id: leadId,
-             event_type: 'call.scheduled',
-             payload: { reason: 'new_lead_meta', scheduled_to: nextAttempt.toISOString() }
-          });
-      }
+      // NOTE: Orchestration (SMS & Call Scheduling) is now handled automatically 
+      // by a Database Trigger `tr_orchestrate_new_lead` calling the `orchestrate_lead` Edge Function.
+      // This ensures it works even if the lead is inserted via Make.com or manually.
 
     } catch (e) {
       console.error(e);

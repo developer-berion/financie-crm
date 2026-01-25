@@ -5,6 +5,86 @@ import { encodeHex } from "https://deno.land/std@0.224.0/encoding/hex.ts";
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS, PUT, DELETE',
+}
+
+const US_STATE_TIMEZONES: Record<string, string> = {
+  'AL': 'America/Chicago', 'AK': 'America/Anchorage', 'AZ': 'America/Phoenix', 'AR': 'America/Chicago',
+  'CA': 'America/Los_Angeles', 'CO': 'America/Denver', 'CT': 'America/New_York', 'DE': 'America/New_York',
+  'FL': 'America/New_York', 'GA': 'America/New_York', 'HI': 'America/Honolulu', 'ID': 'America/Denver',
+  'IL': 'America/Chicago', 'IN': 'America/Indiana/Indianapolis', 'IA': 'America/Chicago', 'KS': 'America/Chicago',
+  'KY': 'America/New_York', 'LA': 'America/Chicago', 'ME': 'America/New_York', 'MD': 'America/New_York',
+  'MA': 'America/New_York', 'MI': 'America/Detroit', 'MN': 'America/Chicago', 'MS': 'America/Chicago',
+  'MO': 'America/Chicago', 'MT': 'America/Denver', 'NE': 'America/Chicago', 'NV': 'America/Los_Angeles',
+  'NH': 'America/New_York', 'NJ': 'America/New_York', 'NM': 'America/Denver', 'NY': 'America/New_York',
+  'NC': 'America/New_York', 'ND': 'America/Chicago', 'OH': 'America/New_York', 'OK': 'America/Chicago',
+  'OR': 'America/Los_Angeles', 'PA': 'America/New_York', 'RI': 'America/New_York', 'SC': 'America/New_York',
+  'SD': 'America/Chicago', 'TN': 'America/Chicago', 'TX': 'America/Chicago', 'UT': 'America/Denver',
+  'VT': 'America/New_York', 'VA': 'America/New_York', 'WA': 'America/Los_Angeles', 'WV': 'America/New_York',
+  'WI': 'America/Chicago', 'WY': 'America/Denver'
+};
+
+const FULL_STATE_TO_ABBR: Record<string, string> = {
+  'alabama': 'AL', 'alaska': 'AK', 'arizona': 'AZ', 'arkansas': 'AR', 'california': 'CA',
+  'colorado': 'CO', 'connecticut': 'CT', 'delaware': 'DE', 'florida': 'FL', 'georgia': 'GA',
+  'hawaii': 'HI', 'idaho': 'ID', 'illinois': 'IL', 'indiana': 'IN', 'iowa': 'IA',
+  'kansas': 'KS', 'kentucky': 'KY', 'louisiana': 'LA', 'maine': 'ME', 'maryland': 'MD',
+  'massachusetts': 'MA', 'michigan': 'MI', 'minnesota': 'MN', 'mississippi': 'MS', 'missouri': 'MO',
+  'montana': 'MT', 'nebraska': 'NE', 'nevada': 'NV', 'new hampshire': 'NH', 'new jersey': 'NJ',
+  'new mexico': 'NM', 'new york': 'NY', 'north carolina': 'NC', 'north dakota': 'ND', 'ohio': 'OH',
+  'oklahoma': 'OK', 'oregon': 'OR', 'pennsylvania': 'PA', 'rhode island': 'RI', 'south carolina': 'SC',
+  'south dakota': 'SD', 'tennessee': 'TN', 'texas': 'TX', 'utah': 'UT', 'vermont': 'VT',
+  'virginia': 'VA', 'washington': 'WA', 'west virginia': 'WV', 'wisconsin': 'WI', 'wyoming': 'WY'
+};
+
+export function getSafeCallTime(stateStr?: string): Date {
+    const now = new Date();
+    const fallback = new Date(now.getTime() + 2 * 60 * 1000); // 2 min delay
+    
+    if (!stateStr) return fallback;
+    
+    const normalized = stateStr.trim().toLowerCase();
+    const abbr = FULL_STATE_TO_ABBR[normalized] || normalized.toUpperCase();
+    const timezone = US_STATE_TIMEZONES[abbr];
+    
+    if (!timezone) {
+        console.log(`Unverifiable state: ${stateStr}, calling immediately.`);
+        return fallback; 
+    }
+
+    try {
+        const formatter = new Intl.DateTimeFormat('en-US', {
+            timeZone: timezone,
+            year: 'numeric', month: 'numeric', day: 'numeric',
+            hour: 'numeric', minute: 'numeric', second: 'numeric',
+            hour12: false
+        });
+
+        const parts = formatter.formatToParts(now);
+        const map = Object.fromEntries(parts.map(p => [p.type, p.value]));
+        const localHour = parseInt(map.hour);
+
+        // Safe window: 9 AM - 8 PM
+        if (localHour >= 9 && localHour < 20) {
+            return fallback;
+        }
+
+        // Calculate target UTC for 9 AM local
+        let targetLocal = new Date(formatter.format(now));
+        if (localHour >= 20) {
+            targetLocal.setDate(targetLocal.getDate() + 1);
+        }
+        targetLocal.setHours(9, 0, 0, 0);
+
+        const wallStr = targetLocal.toLocaleString('en-US', { timeZone: timezone, hour12: false });
+        const wallDate = new Date(wallStr);
+        const offset = wallDate.getTime() - targetLocal.getTime();
+        
+        return new Date(targetLocal.getTime() - offset);
+    } catch (e) {
+        console.error('Error calculating TZ:', e);
+        return fallback;
+    }
 }
 
 export function getSupabaseClient() {
@@ -55,33 +135,103 @@ export async function verifyCalendlySignature(payload: string, signatureHeader: 
         encoder.encode(secret),
         { name: "HMAC", hash: "SHA-256" },
         false,
-        ["sign"] // We sign to compare
+        ["verify"]
+    );
+
+    const verified = await crypto.subtle.verify(
+        "HMAC",
+        key,
+        new Uint8Array(signature.match(/.{1,2}/g)!.map((byte) => parseInt(byte, 16))),
+        encoder.encode(dataToSign)
+    );
+    
+    return verified;
+}
+
+export async function verifyElevenLabsSignature(payload: string, signature: string, secret: string): Promise<boolean> {
+    if (!signature) return false;
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+        "raw",
+        encoder.encode(secret),
+        { name: "HMAC", hash: "SHA-256" },
+        false,
+        ["verify"]
+    );
+
+    const verified = await crypto.subtle.verify(
+        "HMAC",
+        key,
+        new Uint8Array(signature.match(/.{1,2}/g)!.map((byte) => parseInt(byte, 16))),
+        encoder.encode(payload)
+    );
+
+    return verified;
+}
+
+/**
+ * Validates Twilio Request Signature.
+ * Twilio signature is complex (requires alphabetical key sorting, full URL).
+ * Implementing a simplified check or using standard Twilio logic if possible.
+ */
+export async function verifyTwilioSignature(url: string, params: Record<string, string>, signature: string, authToken: string): Promise<boolean> {
+    if (!signature || !authToken) return false;
+    
+    // Twilio's algorithm:
+    // 1. Sort params alphabetically
+    // 2. Append key-value pairs to URL
+    // 3. HMAC-SHA1 the whole thing with authToken
+    
+    let signatureBase = url;
+    const sortedKeys = Object.keys(params).sort();
+    for (const key of sortedKeys) {
+        signatureBase += key + (params[key] || '');
+    }
+
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+        "raw",
+        encoder.encode(authToken),
+        { name: "HMAC", hash: "SHA-1" },
+        false,
+        ["sign"]
     );
 
     const signed = await crypto.subtle.sign(
         "HMAC",
         key,
-        encoder.encode(dataToSign)
+        encoder.encode(signatureBase)
     );
     
-    const computedSignature = encodeHex(signed);
+    const computedSignature = btoa(String.fromCharCode(...new Uint8Array(signed)));
     return computedSignature === signature;
 }
 
 export async function sendSms(to: string, body: string) {
-    const accountSid = Deno.env.get('SUPABASE_AUTH_SMS_TWILIO_ACCOUNT_SID');
-    const authToken = Deno.env.get('SUPABASE_AUTH_SMS_TWILIO_AUTH_TOKEN');
-    const fromNumber = Deno.env.get('SUPABASE_AUTH_SMS_TWILIO_MESSAGE_SERVICE_SID') || Deno.env.get('TWILIO_PHONE_NUMBER');
+    const accountSid = Deno.env.get('SMS_TWILIO_ACCOUNT_SID') || Deno.env.get('SUPABASE_AUTH_SMS_TWILIO_ACCOUNT_SID');
+    const authToken = Deno.env.get('SMS_TWILIO_AUTH_TOKEN') || Deno.env.get('SUPABASE_AUTH_SMS_TWILIO_AUTH_TOKEN');
+    const fromNumber = Deno.env.get('TWILIO_PHONE_NUMBER') || Deno.env.get('SUPABASE_AUTH_SMS_TWILIO_MESSAGE_SERVICE_SID');
 
     if (!accountSid || !authToken || !fromNumber) {
         console.warn('Twilio credentials missing. SMS simulated:', { to, body });
-        return { success: true, simulated: true };
+        return { success: true, simulated: true, sid: 'SIMULATED_' + Date.now() };
     }
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    
+    // Construct the status callback URL dynamically
+    const statusCallback = supabaseUrl ? `${supabaseUrl}/functions/v1/sms_webhook` : undefined;
+
+    console.log(`Sending SMS to ${to}. StatusCallback: ${statusCallback}`);
 
     const formData = new URLSearchParams();
     formData.append('To', to);
     formData.append('From', fromNumber);
     formData.append('Body', body);
+    
+    if (statusCallback) {
+        formData.append('StatusCallback', statusCallback);
+    }
 
     try {
         const response = await fetch(
@@ -103,7 +253,11 @@ export async function sendSms(to: string, body: string) {
             throw new Error(data.message || 'Twilio failed');
         }
         
-        return { success: true, sid: data.sid };
+        console.log('Twilio Success Response:', JSON.stringify(data));
+        // Twilio v2010 returns 'sid' (lowercase) usually, but we fallback just in case
+        const sid = data.sid || data.Sid;
+
+        return { success: true, sid: sid };
     } catch (error) {
         console.error('SMS Send Failed:', error);
         // We log but maybe don't block the whole flow?
@@ -142,4 +296,98 @@ export async function triggerCall(leadId: string) {
     } catch (error) {
         return { success: false, error: error.message };
     }
+}
+
+/**
+ * Core orchestration logic for a lead.
+ * Can be called from a Webhook, UI, or DB Trigger.
+ */
+export async function orchestrateLead(supabase: any, lead: any) {
+    const leadId = lead.id;
+    const phone = lead.phone;
+    const fullName = lead.full_name;
+
+    if (!phone) return { success: false, error: 'No phone number' };
+
+    // 1. Immediate SMS (DISABLED TEMPORARILY)
+    // const smsBody = `Hola ${fullName} hemos recibido tus datos. Un agente se pondrá en contacto contigo en los próximos minutos.`;
+    // const smsResult = await sendSms(phone, smsBody);
+    
+    // Mock success to continue flow without sending SMS
+    const smsResult = { success: true, sid: 'SKIPPED_VERIFICATION', error: null };
+
+    // 2. Log to integration_logs (SKIP or log skipped)
+    await supabase.from('integration_logs').insert({
+        provider: 'twilio',
+        status: 'skipped',
+        message_safe: `Immediate SMS to ${phone} (DISABLED)`,
+        payload_ref: { sms_sid: 'SKIPPED', reason: 'verification_process' }
+    });
+
+    // 3. Log to specific sms_events table (SKIP)
+    // await supabase.from('sms_events').insert({
+    //     lead_id: leadId,
+    //     message_sid: smsResult.sid,
+    //     status_raw: smsResult.success ? 'accepted' : 'failed',
+    //     status_crm: smsResult.success ? null : 'NO_ENVIADO'
+    // });
+
+    // 4. Log to lead_events (Timeline)
+    await supabase.from('lead_events').insert({
+        lead_id: leadId,
+        event_type: 'sms.skipped_verification',
+        payload: { reason: 'verification_disable' }
+    });
+
+    // 5. Schedule Call if SMS success (Always true now since we mock success)
+    if (smsResult.success) {
+        // Use timezone-aware scheduling
+        const nextAttempt = getSafeCallTime(lead.state);
+        console.log(`Scheduling call for lead ${leadId} in state ${lead.state} for ${nextAttempt.toISOString()}`);
+        
+        await supabase.from('call_schedules').insert({
+            lead_id: leadId,
+            next_attempt_at: nextAttempt.toISOString(),
+            attempts_today: 0,
+            retry_count_block: 0,
+            active: true
+        });
+
+        const jobInsert = await supabase.from('jobs').insert({
+            lead_id: leadId,
+            type: 'INITIAL_CALL',
+            scheduled_at: nextAttempt.toISOString(),
+            status: 'PENDING'
+        }).select().single();
+        
+        await supabase.from('lead_events').insert({
+           lead_id: leadId,
+           event_type: 'call.scheduled',
+           payload: { reason: 'orchestration_triggered', scheduled_to: nextAttempt.toISOString() }
+        });
+
+        // Instant Tier: If scheduled for roughly "now" (safe window), trigger immediately
+        const isImmediate = (nextAttempt.getTime() - new Date().getTime()) < (5 * 60 * 1000);
+        if (isImmediate && jobInsert.data) {
+            console.log(`Instant Trigger for lead ${leadId}`);
+            const callResult = await triggerCall(leadId);
+            if (callResult.success) {
+                await supabase.from('jobs').update({
+                    status: 'COMPLETED'
+                }).eq('id', jobInsert.data.id);
+            } else {
+                await supabase.from('jobs').update({
+                    error: callResult.error
+                }).eq('id', jobInsert.data.id);
+            }
+        }
+    } else {
+        await supabase.from('lead_events').insert({
+            lead_id: leadId,
+            event_type: 'call.scheduling_skipped',
+            payload: { reason: 'sms_failure', error: smsResult.error }
+        });
+    }
+
+    return { success: true };
 }

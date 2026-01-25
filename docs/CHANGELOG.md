@@ -9,3 +9,5 @@
 - Configuración de Cron Job en Supabase para el despachador de llamadas.
 - Soporte para nuevos campos de leads: Estado/Región, Términos Aceptados y Fecha Meta.
 - Corrección de políticas RLS para acceso universal de usuarios autenticados.
+- Implementación de reglas de detección de buzón de voz (ElevenLabs) para colgar automáticamente.
+- Despliegue de función `make_outbound_call` con parámetros optimizados.

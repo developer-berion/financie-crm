@@ -1,0 +1,165 @@
+﻿--- Checking Agent agent_4101kf6gqfgpfrganck3s1m0ap3v ---
+Conversation Config: {
+  "asr": {
+    "quality": "high",
+    "provider": "elevenlabs",
+    "user_input_audio_format": "pcm_16000",
+    "keywords": []
+  },
+  "turn": {
+    "turn_timeout": 8,
+    "initial_wait_time": null,
+    "silence_end_call_timeout": 30,
+    "soft_timeout_config": {
+      "timeout_seconds": 2,
+      "message": "Hhmmmm...Si, me das unos segundos por favor...",
+      "use_llm_generated_message": false
+    },
+    "mode": "turn",
+    "turn_eagerness": "normal",
+    "spelling_patience": "auto"
+  },
+  "tts": {
+    "model_id": "eleven_turbo_v2_5",
+    "voice_id": "b2htR0pMe28pYwCY9gnP",
+    "supported_voices": [],
+    "suggested_audio_tags": [],
+    "agent_output_audio_format": "pcm_16000",
+    "optimize_streaming_latency": 3,
+    "stability": 0.63,
+    "speed": 1.07,
+    "similarity_boost": 0.82,
+    "text_normalisation_type": "system_prompt",
+    "pronunciation_dictionary_locators": []
+  },
+  "conversation": {
+    "text_only": false,
+    "max_duration_seconds": 300,
+    "client_events": [
+      "audio",
+      "interruption",
+      "user_transcript",
+      "agent_response",
+      "agent_response_correction"
+    ],
+    "monitoring_enabled": false,
+    "monitoring_events": [
+      "user_transcript",
+      "agent_response",
+      "agent_response_correction"
+    ]
+  },
+  "language_presets": {},
+  "vad": {
+    "background_voice_detection": false
+  },
+  "agent": {
+    "first_message": "\n",
+    "language": "es",
+    "hinglish_mode": false,
+    "dynamic_variables": {
+      "dynamic_variable_placeholders": {
+        "lead_name": "Bianca",
+        "stable_income": "Si",
+        "main_objective": "Protecci├│n",
+        "health_condition": "no"
+      }
+    },
+    "disable_first_message_interruptions": false,
+    "prompt": {
+      "prompt": "# Personality\nEres Laura, una asistente virtual telef├│nica de calificaci├│n de leads para seguros de vida en Estados Unidos (enfoque: IUL).\nTu estilo es c├ílido, humano, serio y profesional.\nHablas espa├▒ol latino natural (latino en USA), con acento colombiano neutral.\nUsas frases cortas. No das discursos largos. No suenas rob├│tica.\n\n# Context (datos del CRM)\nEstos datos pueden estar disponibles (pueden venir vac├¡os, ΓÇ£N/AΓÇ¥ o null):\nNombre: {{lead_name}}\nIngresos estables / trabaja: {{stable_income}}\nObjetivo principal: {{main_objective}}\nCondici├│n de salud (s├¡/no): {{health_condition}}\n\nRegla de decisi├│n (MANDATORIA):\nConsidera ΓÇ£VAC├ìOΓÇ¥ si el valor es: vac├¡o, null, ΓÇ£N/AΓÇ¥, ΓÇ£NAΓÇ¥, ΓÇ£No s├⌐ΓÇ¥, ΓÇ£DesconocidoΓÇ¥.\nSi stable_income, main_objective y health_condition est├ín todos llenos ΓåÆ usa MODO CONFIRMACI├ôN + AGENDA.\nSi cualquiera de esos 3 est├í vac├¡o ΓåÆ usa MODO NORMAL (preguntas).\n\n# Compliance (obligatorio)\n- Al inicio de la llamada debes decir que eres una asistente virtual.\n- Debes mencionar el nombre de la licenciada: Bianca Garcia.\n- Indica que la llamada puede ser grabada por calidad.\n- Si la persona pide no recibir m├ís llamadas, te disculpas, confirmas que se detendr├ín y finalizas la llamada.\n- No das asesor├¡a de seguros ni explicas productos. No respondes a preguntas, en caso de tener preguntas ofrecer agendar la llamada con el asesor.\n\n\n# Goal\nTu ├║nico objetivo es calificar al lead con preguntas simples y guardar sus respuestas.\nNo vendas. No convenzas. No expliques IUL.\n- Si alguien pregunta si ┬┐Es esto un seguro de vida?. Debes responder: \"S├¡ esto es un seguro de vida con ahorro.\" Si las preguntas no han iniciado, ofrece continuar con las preguntas b├ísicas. Si las preguntas ya iniciaron continua con el flujo donde hab├¡as quedado antes de la interrupci├│n \n\n\n# Flow\nSigue este flujo estrictamente:\n\n\nAPERTURA:\nSi el lead hace preguntas en cualquier punto del flujo (antes o durante preguntas):\n- Responde: ΓÇ£Totalmente v├ílido. Lo mejor ser├¡a que uno de nuestros agentes licenciados pueda responder esa y cualquier otra inquietud que tenga. ┬┐Le parece si le agendo una llamada?ΓÇ¥\n- Luego vuelve al flujo: Si a├║n no has hecho PREGUNTA 1 ΓåÆ ΓÇ£Para agendarle con la persona correcta, solo 2 pregunticas r├ípidasΓÇªΓÇ¥\n\nΓÇ£Hola, ┬┐hablo con {{lead_name}}?\nSi/quien es?:Mi nombre es Laura, asistente virtual de la licenciada Bianca Garcia.\nEsta llamada puede ser grabada por calidad.\nTe contacto porque llenaste un formulario en Facebook o Instagram mostrando inter├⌐s en nuestras estrategias financieras de protecci├│n y crecimiento a largo plazo.┬á\n┬┐Tienes un minuto para┬á hablar?ΓÇ¥\nSi:┬á\n\nROUTER (interno)\nSi los 3 campos (stable_income, main_objective, health_condition) est├ín llenos ΓåÆ MODO CONFIRMACI├ôN + AGENDA\nSi no ΓåÆ MODO NORMAL\n\nMODO CONFIRMACI├ôN + AGENDA (solo verificar y agendar)\nConfirmaci├│n 1 (ingresos):\nΓÇ£Solo para confirmar, Vi que indicaste que tienes ingresos constantes o est├ís trabajando. ┬┐Es correcto?ΓÇ¥\nSi dice NO ΓåÆ cambia a MODO NORMAL y ejecuta PREGUNTA 1 completa.\nConfirmaci├│n 2 (salud):\nΓÇ£Tambi├⌐n marcaste que (s├¡/no) tienes una condici├│n de salud importante. ┬┐Correcto?ΓÇ¥\nSi dice ΓÇ£s├¡ΓÇ¥: ΓÇ£Entiendo. No necesito detalles. Igual podemos agendar con un licenciado para que lo eval├║e.ΓÇ¥\nConfirmaci├│n 3 (objetivo):\nΓÇ£Y tu objetivo principal era: ΓÇÿ{{main_objective}}ΓÇÖ. ┬┐Correcto?ΓÇ¥\nSi lo corrige: ΓÇ£Perfecto, entendido.ΓÇ¥\nAGENDA:\nΓÇ£Listo. Entonces lo mejor es agendarte con un agente licenciado.\n┬┐Prefieres llamada telef├│nica o v├¡a Zoom?\nTenemos disponibilidad entre 10am y 1pm, o entre 4pm y 7pm hora del este.ΓÇ¥\nCIERRE:\nSi acepta: confirma d├¡a y hora.\nSi est├í ocupado: pregunta mejor momento dentro de esas franjas.\nSi est├í molesto: disc├║lpate y ofrece detener llamadas.\n\nMODO NORMAL (preguntas completas o solo las que falten)\nRegla: si un dato ya existe, no lo repitas, solo confirma en 1 frase o salta.\n\nPREGUNTA 1:\nUno de los requisitos que se necesitan para calificar a estas estrategias es si actualmente est├ís trabajando o tienes ingresos de forma constante?\n- Espera la respuesta del cliente, no ofrezca opci├│n de respuesta\n- Si NO: pregunta si es due├▒o de negocio o trabajador independiente.\n┬á┬á- Si NO: explica con respeto que este tipo de seguro requiere ingresos constantes de cualquier tipo.\n Si NO: Entonces agradece por su tiempo pero no califica para este tipo de servicios.\n- Si S├ì: contin├║a.\n\n\nPREGUNTA 2:\nPerfecto, en t├⌐rminos generales, ┬┐padece de alguna condici├│n de salud importante?\n. No pidas detalles.\n- Si, Si: Entiendo, podemos agendar una reuni├│n con uno de nuestros licenciados para que eval├║e su cado.\n- Si , No: continua con la pregunta 3\n\nPREGUNTA 3:\nPregunta si desea agendar una llamada con un agente licenciado.\nPuede ser llamada telef├│nica o via Zoom. Entre las 10 de la ma├▒ana y la 1 de la tarde. O entre las 4 de la tarde y 8 de la noche hora del este.\n\n\nCIERRE:\n- Si acepta, confirma d├¡a y hora.\n- Si est├í ocupado, pregunta mejor momento.\n- Si est├í molesto, disc├║lpate y ofrece detener llamadas.\n\n\n# Rules\n- Si hay silencio, repite una vez de forma m├ís simple.\n- Si no hay respuesta, cierra con cortes├¡a.\n- Nunca discutas.\n- Nunca presiones.\n\n",
+      "llm": "gemini-2.5-flash",
+      "reasoning_effort": null,
+      "thinking_budget": 0,
+      "temperature": 0.03,
+      "max_tokens": 400,
+      "tool_ids": [],
+      "built_in_tools": {
+        "end_call": {
+          "type": "system",
+          "name": "end_call",
+          "description": "",
+          "response_timeout_secs": 20,
+          "disable_interruptions": false,
+          "force_pre_tool_speech": false,
+          "assignments": [],
+          "tool_call_sound": null,
+          "tool_call_sound_behavior": "auto",
+          "params": {
+            "system_tool_type": "end_call"
+          }
+        },
+        "language_detection": null,
+        "transfer_to_agent": null,
+        "transfer_to_number": null,
+        "skip_turn": null,
+        "play_keypad_touch_tone": null,
+        "voicemail_detection": {
+          "type": "system",
+          "name": "voicemail_detection",
+          "description": "",
+          "response_timeout_secs": 20,
+          "disable_interruptions": false,
+          "force_pre_tool_speech": false,
+          "assignments": [],
+          "tool_call_sound": null,
+          "tool_call_sound_behavior": "auto",
+          "params": {
+            "system_tool_type": "voicemail_detection",
+            "voicemail_message": ""
+          }
+        }
+      },
+      "enable_parallel_tool_calls": false,
+      "mcp_server_ids": [],
+      "native_mcp_server_ids": [],
+      "knowledge_base": [],
+      "custom_llm": null,
+      "ignore_default_personality": false,
+      "rag": {
+        "enabled": false,
+        "embedding_model": "e5_mistral_7b_instruct",
+        "max_vector_distance": 0.6,
+        "max_documents_length": 50000,
+        "max_retrieved_rag_chunks_count": 20,
+        "query_rewrite_prompt_override": null
+      },
+      "timezone": "America/New_York",
+      "backup_llm_config": {
+        "preference": "default"
+      },
+      "cascade_timeout_seconds": 8,
+      "tools": [
+        {
+          "type": "system",
+          "name": "end_call",
+          "description": "",
+          "response_timeout_secs": 20,
+          "disable_interruptions": false,
+          "force_pre_tool_speech": false,
+          "assignments": [],
+          "tool_call_sound": null,
+          "tool_call_sound_behavior": "auto",
+          "params": {
+            "system_tool_type": "end_call"
+          }
+        },
+        {
+          "type": "system",
+          "name": "voicemail_detection",
+          "description": "",
+          "response_timeout_secs": 20,
+          "disable_interruptions": false,
+          "force_pre_tool_speech": false,
+          "assignments": [],
+          "tool_call_sound": null,
+          "tool_call_sound_behavior": "auto",
+          "params": {
+            "system_tool_type": "voicemail_detection",
+            "voicemail_message": ""
+          }
+        }
+      ]
+    }
+  }
+}

@@ -14,7 +14,7 @@ CRM Interno minimalista para 1 Agente de Seguros, optimizado para gestionar lead
 - **Fuera de Alcance:**
   - Multi-tenancy (múltiples usuarios).
   - Sign-up público.
-  - Integración real de voz (ElevenLabs es Stub).
+  - Integración real de voz (ElevenLabs Activo y Configurado).
   - Pagos/Facturación.
 
 ## Flujos Principales E2E

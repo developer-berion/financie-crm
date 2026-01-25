@@ -32,10 +32,16 @@ Este documento detalla la configuración operativa de las integraciones externas
 - **Troubleshooting**:
   - Si no llega el webhook, verificar estado de suscripción en Calendly API.
 
-## ElevenLabs (Stub / Futuro)
-- **Estado Actual**: STUB (Simulación).
-- **Funcionalidad**: Registra intentos de llamada pero no ejecuta audio real.
-- **Logs**: Aparecen en `integration_logs` con provider `elevenlabs-stub` y status `ignored`.
+## ElevenLabs (Activo)
+- **Estado Actual**: ACTIVO (Producción).
+- **Funcionalidad**: Llamadas salientes con IA conversacional (Agente Laura).
+- **Configuración**:
+  - **Agent ID**: `agent_4101kf6gqfgpfrganck3s1m0ap3v`.
+  - **Phone Number**: +17863212663.
+  - **Tooling**: `voicemail_detection` habilitado + Prompt Rules para colgar en buzón.
+- **Troubleshooting**:
+  - Si la llamada no sale: Verificar logs de Supabase y créditos en ElevenLabs.
+  - Si no cuelga en buzón: Revisar logs d el conversación y ajustar Prompt (palabras clave de saludo).
 
 ## Variables de Entorno (Supabase Console > Edge Functions > Secrets)
 ```

@@ -14,6 +14,8 @@ export interface Lead {
   state?: string;
   terms_accepted?: boolean;
   meta_created_at?: string;
+  message_status?: 'recibido' | 'no_enviado' | 'no_recibido';
+  call_status?: 'exitosa' | 'rechazada' | 'sin_respuesta';
 }
 
 export interface PipelineStage {

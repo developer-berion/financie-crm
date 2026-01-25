@@ -18,3 +18,12 @@
   - **Actualización:** Cambio de número de teléfono de Twilio a (786) 321-2663.
 - **Decisiones tomadas:** Cambio de estrategia de SMS inicial a ElevenLabs Call 5 min después para maximizar conversión.
 - **Próximo:** Empaquetar el proyecto para Hostinger.
+## 2026-01-25
+- **Hecho:**
+  - Depuración de integración ElevenLabs (problema de cuelgue en buzón).
+  - Actualización del Prompt del Agente con reglas estrictas de `Voicemail Detection`.
+  - Optimización de la función `make_outbound_call` (eliminación de parámetros conflictivos).
+  - Verificación manual y despliegue exitoso de Edge Function.
+  - Ejecución local del proyecto y revisión visual del Dashboard.
+- **Decisiones tomadas:** Se confía la detección de buzón enteramente a la IA del Agente (Prompt) en lugar de flags de API (`detect_voicemail`) que causaban conflictos (status stuck in `initiated`).
+- **Próximo:** Finalizar build y push a repositorio.
