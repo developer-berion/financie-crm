@@ -21,7 +21,7 @@ CRM personalizado construido con React, Vite y Supabase para la gestión automat
 - **Backend:** Supabase (PostgreSQL, Auth, Edge Functions, Cron Jobs).
 - **Integraciones:**
   - **Twilio:** Envío de SMS transaccionales.
-  - **ElevenLabs:** Agente de voz AI para llamadas salientes.
+  - **ElevenLabs:** Agente de voz AI para llamadas salientes. Sincronización automática de transcripciones y análisis de datos (Objetivo, Ingresos, Salud).
   - **Meta/Make:** Webhook para recepción de leads.
 
 ## ⚙️ Configuración del Proyecto

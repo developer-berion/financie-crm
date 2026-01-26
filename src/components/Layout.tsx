@@ -33,7 +33,7 @@ export default function Layout() {
     ];
 
     return (
-        <div className="flex h-screen bg-gray-50">
+        <div className="flex h-screen bg-brand-bg">
             {/* Mobile Sidebar Overlay */}
             {sidebarOpen && (
                 <div
@@ -44,25 +44,25 @@ export default function Layout() {
 
             {/* Sidebar */}
             <aside className={cn(
-                "fixed inset-y-0 left-0 z-30 transform bg-white shadow-lg transition-all duration-300 lg:static lg:translate-x-0 border-r",
+                "fixed inset-y-0 left-0 z-30 transform bg-brand-primary shadow-xl transition-all duration-300 lg:static lg:translate-x-0",
                 sidebarOpen ? "translate-x-0" : "-translate-x-full",
                 isCollapsed ? "w-20" : "w-64"
             )}>
                 <div className={cn(
-                    "flex h-16 items-center border-b px-4",
+                    "flex h-16 items-center border-b border-white/10 px-4",
                     isCollapsed ? "justify-center" : "justify-between"
                 )}>
-                    {!isCollapsed && <h1 className="text-xl font-bold text-gray-800">CRM Seguros</h1>}
+                    {!isCollapsed && <h1 className="text-xl font-bold text-white tracking-tight">CRM Seguros</h1>}
                     <button
                         onClick={() => setIsCollapsed(!isCollapsed)}
-                        className="p-1.5 rounded-lg hover:bg-gray-100 hidden lg:block text-gray-500 hover:text-gray-700"
+                        className="p-1.5 rounded-lg hover:bg-white/10 hidden lg:block text-white/70 hover:text-white transition-colors"
                     >
                         {isCollapsed ? <Menu className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
                     </button>
                     {/* Mobile close button */}
                     <button
                         onClick={() => setSidebarOpen(false)}
-                        className="lg:hidden p-1.5 rounded-lg hover:bg-gray-100 text-gray-500"
+                        className="lg:hidden p-1.5 rounded-lg hover:bg-white/10 text-white/70"
                     >
                         <ChevronLeft className="h-6 w-6" />
                     </button>
@@ -76,11 +76,11 @@ export default function Layout() {
                             onClick={() => setSidebarOpen(false)}
                             title={isCollapsed ? item.name : undefined}
                             className={({ isActive }) => cn(
-                                "flex items-center rounded-md py-3 text-sm font-medium transition-colors",
+                                "flex items-center rounded-lg py-3 text-sm font-medium transition-all duration-200",
                                 isCollapsed ? "justify-center px-2" : "px-4",
                                 isActive
-                                    ? "bg-blue-50 text-blue-700"
-                                    : "text-gray-700 hover:bg-gray-100"
+                                    ? "bg-brand-accent text-brand-primary shadow-md font-bold"
+                                    : "text-white/70 hover:bg-white/10 hover:text-white"
                             )}
                         >
                             <item.icon className={cn("h-5 w-5", isCollapsed ? "mr-0" : "mr-3")} />
@@ -89,11 +89,12 @@ export default function Layout() {
                     ))}
                 </nav>
 
-                <div className="border-t p-4">
+                <div className="border-t border-white/10 p-4">
                     {!isCollapsed && (
-                        <div className="flex items-center px-4 py-3 mb-2">
+                        <div className="flex items-center px-4 py-3 mb-2 bg-white/5 rounded-lg border border-white/5">
                             <div>
-                                <p className="text-sm font-medium text-gray-700 truncate max-w-[160px]">{user?.email}</p>
+                                <p className="text-sm font-medium text-white truncate max-w-[160px]">{user?.email}</p>
+                                <p className="text-xs text-white/50">Admin</p>
                             </div>
                         </div>
                     )}
@@ -101,7 +102,7 @@ export default function Layout() {
                         onClick={handleSignOut}
                         title={isCollapsed ? "Cerrar Sesión" : undefined}
                         className={cn(
-                            "flex w-full items-center rounded-md py-2 text-sm font-medium text-red-600 hover:bg-red-50",
+                            "flex w-full items-center rounded-lg py-2 text-sm font-medium text-red-300 hover:bg-red-500/10 hover:text-red-200 transition-colors",
                             isCollapsed ? "justify-center px-2" : "px-4"
                         )}
                     >

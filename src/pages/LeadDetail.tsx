@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import Timeline from '../components/Timeline';
-import { Ban, Clock, MessageSquare, Phone, Mail, User, MapPin, Tag, Calendar, ExternalLink, Hash, Info } from 'lucide-react';
+import Modal from '../components/Modal';
+import ElevenLabsCallCard from '../components/ElevenLabsCallCard';
+import { Ban, Clock, MessageSquare, Phone, Mail, User, MapPin, Tag, Calendar, Hash, Info } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 export default function LeadDetail() {
@@ -17,6 +19,7 @@ export default function LeadDetail() {
     const [note, setNote] = useState('');
     const [loading, setLoading] = useState(true);
     const [calling, setCalling] = useState(false);
+    const [isTranscriptModalOpen, setIsTranscriptModalOpen] = useState(false);
 
     useEffect(() => {
         if (id) fetchLeadData();
@@ -169,32 +172,63 @@ export default function LeadDetail() {
         return val;
     };
 
+    const getTimeZoneLabel = (state?: string) => {
+        if (!state) return '';
+        const s = state.toLowerCase().trim();
+        if (['florida', 'fl', 'new york', 'ny', 'georgia', 'ga', 'north carolina', 'nc', 'ohio', 'oh', 'pennsylvania', 'pa'].includes(s)) return 'Hora del Este';
+        if (['texas', 'tx', 'illinois', 'il', 'minnesota', 'mn', 'missouri', 'mo'].includes(s)) return 'Hora Central';
+        if (['california', 'ca', 'washington', 'wa', 'nevada', 'nv', 'oregon', 'or'].includes(s)) return 'Hora del Pacífico';
+        if (['colorado', 'co', 'arizona', 'az'].includes(s)) return 'Hora de Montaña';
+        return '';
+    };
+
+    const extractAgendaFromTranscript = (text: string) => {
+        if (!text) return null;
+        // Search for date patterns: "26 de enero", "lunes 27", etc.
+        const datePattern = /(?:lunes|martes|miércoles|miercoles|jueves|viernes|sábado|sabado|domingo)?\s*\d{1,2}\s+de\s+(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)/i;
+        // Search for time patterns: "11:00 AM", "a las 3", etc.
+        const timePattern = /(?:\d{1,2}(?::\d{2})?\s*(?:AM|PM|am|pm)?)|(?:a\s+las\s+\d{1,2}(?::\d{2})?)/i;
+
+        const dateMatch = text.match(datePattern);
+        const timeMatch = text.match(timePattern);
+
+        if (dateMatch || timeMatch) {
+            return {
+                date: dateMatch ? dateMatch[0] : null,
+                time: timeMatch ? timeMatch[0] : null
+            };
+        }
+        return null;
+    };
+
+    const detectedAgenda = conversation?.transcript ? extractAgendaFromTranscript(conversation.transcript) : null;
+
     if (loading) return <div>Cargando...</div>;
     if (!lead) return <div>Lead no encontrado</div>;
 
     return (
-        <div className="max-w-7xl mx-auto space-y-6 pb-20">
+        <div className="max-w-7xl mx-auto space-y-8 pb-20 font-sans text-brand-text">
             {/* Header Section */}
-            <div className="bg-white rounded-[2rem] shadow-sm border border-[#d9d9d9] p-8">
+            <div className="bg-white rounded-2xl shadow-sm border border-brand-border p-6 md:p-8">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                    <div className="flex items-center gap-4">
-                        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#f6c71e] to-[#e5b810] flex items-center justify-center text-[#414042] text-2xl font-bold shadow-lg shadow-[#f6c71e]/20">
+                    <div className="flex items-center gap-5">
+                        <div className="w-16 h-16 rounded-2xl bg-brand-bg flex items-center justify-center text-brand-primary text-2xl font-bold shadow-inner">
                             {lead.full_name?.charAt(0) || <User />}
                         </div>
                         <div>
-                            <h1 className="text-2xl font-black text-[#414042] tracking-tight">{lead.full_name}</h1>
+                            <h1 className="text-3xl font-bold text-brand-primary tracking-tight">{lead.full_name}</h1>
                             <div className="flex flex-wrap items-center gap-2 mt-2">
                                 <span className={cn(
-                                    "px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border",
+                                    "px-3 py-1 rounded-full text-xs font-semibold border",
                                     getBadgeStyle(lead.status)
                                 )}>
                                     {lead.status}
                                 </span>
-                                <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border bg-gray-50 border-gray-100 text-gray-500">
+                                <span className="px-3 py-1 rounded-full text-xs font-semibold border bg-gray-50 border-gray-200 text-gray-600">
                                     {lead.pipeline_stages?.name}
                                 </span>
                                 {lead.do_not_call && (
-                                    <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border bg-red-50 border-red-100 text-red-600 flex items-center gap-1">
+                                    <span className="px-3 py-1 rounded-full text-xs font-semibold border bg-red-50 border-red-100 text-red-600 flex items-center gap-1">
                                         <Ban className="w-3 h-3" /> No Llamar
                                     </span>
                                 )}
@@ -206,7 +240,7 @@ export default function LeadDetail() {
                         {!lead.do_not_call && (
                             <button
                                 onClick={handleDNC}
-                                className="flex-1 md:flex-none px-6 py-3 rounded-xl border-2 border-red-100 text-red-600 text-sm font-bold hover:bg-red-50 transition-all flex items-center justify-center gap-2"
+                                className="flex-1 md:flex-none px-5 py-2.5 rounded-xl border border-red-100 text-red-600 text-sm font-medium hover:bg-red-50 transition-colors flex items-center justify-center gap-2"
                             >
                                 <Ban className="w-4 h-4" /> DNC
                             </button>
@@ -215,10 +249,10 @@ export default function LeadDetail() {
                             onClick={handleCall}
                             disabled={calling || lead.do_not_call}
                             className={cn(
-                                "flex-1 md:flex-none px-8 py-3 rounded-xl text-[#0f171a] text-sm font-black transition-all flex items-center justify-center gap-2 shadow-lg",
+                                "flex-1 md:flex-none px-6 py-2.5 rounded-xl text-white text-sm font-semibold transition-all flex items-center justify-center gap-2 shadow-sm hover:shadow-md",
                                 calling
-                                    ? "bg-gray-100 cursor-not-allowed text-gray-400 shadow-none border-[#d9d9d9]"
-                                    : "bg-[#f6c71e] hover:bg-[#e5b810] shadow-[#f6c71e]/30 scale-100 hover:scale-105 active:scale-95"
+                                    ? "bg-gray-100 cursor-not-allowed text-gray-400 border border-brand-border"
+                                    : "bg-brand-secondary hover:bg-brand-primary active:scale-95"
                             )}
                         >
                             <Phone className="w-4 h-4" />
@@ -226,6 +260,51 @@ export default function LeadDetail() {
                         </button>
                     </div>
                 </div>
+
+                {/* Agenda Detection Alert */}
+                {(conversation?.scheduled_datetime || detectedAgenda) && (
+                    <div className="mt-8 bg-green-50/50 border border-green-100 rounded-xl p-5 flex flex-col md:flex-row items-center justify-between gap-4 animate-in slide-in-from-top-2 duration-300">
+                        <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center text-green-600">
+                                <Calendar className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <p className="text-xs font-bold text-green-600 uppercase tracking-wider flex items-center gap-2">
+                                    Cita Confirmada
+                                    <span className="text-[10px] font-medium lowercase text-green-500/70 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        (Detectada por AI)
+                                    </span>
+                                </p>
+                                <h4 className="text-base font-semibold text-brand-primary">
+                                    {conversation?.scheduled_datetime
+                                        ? new Date(conversation.scheduled_datetime).toLocaleString('es-ES', {
+                                            weekday: 'long',
+                                            day: '2-digit',
+                                            month: 'long',
+                                            hour: 'numeric',
+                                            minute: '2-digit',
+                                            hour12: true
+                                        }) + ` ${getTimeZoneLabel(lead.state)}`
+                                        : `${detectedAgenda?.date || ''} ${detectedAgenda?.time || ''}`}
+                                    {conversation?.scheduled_channel && (
+                                        <span className="ml-2 text-xs font-normal text-gray-400">
+                                            vía <span className="font-semibold text-brand-secondary capitalize">{conversation.scheduled_channel}</span>
+                                        </span>
+                                    )}
+                                </h4>
+                                <p className="text-[10px] text-green-700/60 font-medium mt-0.5">
+                                    ✓ Debes crear la agenda en tu calendario corporativo.
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-full border border-green-100 shadow-sm">
+                            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                            <span className="text-xs font-bold text-green-700">
+                                Cita confirmada
+                            </span>
+                        </div>
+                    </div>
+                )}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -234,60 +313,60 @@ export default function LeadDetail() {
 
                     {/* Contact & Bio Card */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="bg-white rounded-[2rem] shadow-sm border border-[#d9d9d9] p-8">
-                            <h3 className="text-xs font-black text-[#414042]/40 uppercase tracking-widest mb-6 flex items-center gap-2">
+                        <div className="bg-white rounded-2xl shadow-sm border border-brand-border p-6 flex flex-col h-full">
+                            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-5 flex items-center gap-2">
                                 <User className="w-4 h-4" /> Datos de Contacto
                             </h3>
-                            <div className="space-y-4">
+                            <div className="space-y-5 flex-1">
                                 <div className="flex items-center gap-4 group">
-                                    <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400 group-hover:bg-[#f6c71e]/10 group-hover:text-[#f6c71e] transition-colors">
+                                    <div className="w-8 h-8 rounded-lg bg-brand-bg flex items-center justify-center text-gray-400 group-hover:text-brand-accent transition-colors">
                                         <Mail className="w-4 h-4" />
                                     </div>
                                     <div>
-                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Email</p>
-                                        <p className="text-sm font-bold text-[#414042]">{lead.email || 'No proporcionado'}</p>
+                                        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Email</p>
+                                        <p className="text-sm font-medium text-brand-text">{lead.email || 'No proporcionado'}</p>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-4 group">
-                                    <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400 group-hover:bg-[#f6c71e]/10 group-hover:text-[#f6c71e] transition-colors">
+                                    <div className="w-8 h-8 rounded-lg bg-brand-bg flex items-center justify-center text-gray-400 group-hover:text-brand-accent transition-colors">
                                         <Phone className="w-4 h-4" />
                                     </div>
                                     <div>
-                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Teléfono</p>
-                                        <p className="text-sm font-bold text-[#414042]">{lead.phone}</p>
+                                        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Teléfono</p>
+                                        <p className="text-sm font-medium text-brand-text">{lead.phone}</p>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-4 group">
-                                    <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400 group-hover:bg-[#f6c71e]/10 group-hover:text-[#f6c71e] transition-colors">
+                                    <div className="w-8 h-8 rounded-lg bg-brand-bg flex items-center justify-center text-gray-400 group-hover:text-brand-accent transition-colors">
                                         <MapPin className="w-4 h-4" />
                                     </div>
                                     <div>
-                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Ubicación</p>
-                                        <p className="text-sm font-bold text-[#414042]">{lead.state || 'Nacional / Desconocido'}</p>
+                                        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Ubicación</p>
+                                        <p className="text-sm font-medium text-brand-text">{lead.state || 'Nacional / Desconocido'}</p>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="bg-white rounded-[2rem] shadow-sm border border-[#d9d9d9] p-8">
-                            <h3 className="text-xs font-black text-[#414042]/40 uppercase tracking-widest mb-6 flex items-center gap-2">
-                                <Info className="w-4 h-4" /> Metadata del Lead
+                        <div className="bg-white rounded-2xl shadow-sm border border-brand-border p-6 flex flex-col h-full">
+                            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-5 flex items-center gap-2">
+                                <Info className="w-4 h-4" /> Información del Lead
                             </h3>
-                            <div className="space-y-4">
-                                <div className="flex justify-between items-center py-2 border-b border-gray-50">
-                                    <span className="text-[10px] font-bold text-gray-400 uppercase">Origen</span>
-                                    <span className="text-xs font-black text-[#414042] capitalize bg-gray-100 px-2 py-0.5 rounded">{lead.source}</span>
+                            <div className="space-y-3 flex-1">
+                                <div className="flex justify-between items-center py-2 border-b border-brand-border/50">
+                                    <span className="text-xs text-gray-500">Origen</span>
+                                    <span className="text-xs font-semibold text-brand-primary bg-brand-bg px-2 py-1 rounded-md capitalize">{lead.source}</span>
                                 </div>
-                                <div className="flex justify-between items-center py-2 border-b border-gray-50">
-                                    <span className="text-[10px] font-bold text-gray-400 uppercase">Creado el</span>
-                                    <span className="text-xs font-bold text-[#414042]">{new Date(lead.created_at).toLocaleDateString()}</span>
+                                <div className="flex justify-between items-center py-2 border-b border-brand-border/50">
+                                    <span className="text-xs text-gray-500">Fecha de Creación</span>
+                                    <span className="text-xs font-medium text-brand-text">{new Date(lead.created_at).toLocaleDateString()}</span>
                                 </div>
                                 <div className="flex justify-between items-center py-2">
-                                    <span className="text-[10px] font-bold text-gray-400 uppercase">Marketing</span>
+                                    <span className="text-xs text-gray-500">Consentimiento</span>
                                     {lead.marketing_consent ? (
-                                        <span className="text-[10px] font-black text-green-600 bg-green-50 px-2 py-0.5 rounded-full ring-1 ring-green-100 uppercase tracking-tighter">Aceptado</span>
+                                        <span className="text-[10px] font-bold text-green-700 bg-green-50 px-2 py-1 rounded-full ring-1 ring-green-100 uppercase">Aceptado</span>
                                     ) : (
-                                        <span className="text-[10px] font-black text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full uppercase tracking-tighter">No Registrado</span>
+                                        <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded-full uppercase">No Registrado</span>
                                     )}
                                 </div>
                             </div>
@@ -296,134 +375,98 @@ export default function LeadDetail() {
 
 
                     {/* Lead Qualification (Editable) */}
-                    <div className="bg-white rounded-[2rem] shadow-sm border border-[#d9d9d9] p-8">
-                        <h3 className="text-xs font-black text-[#414042]/40 uppercase tracking-widest mb-6 flex items-center gap-2">
-                            <Tag className="w-4 h-4" /> Calificación del Lead
+                    <div className="bg-white rounded-2xl shadow-sm border border-brand-border p-6 md:p-8">
+                        <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-6 flex items-center gap-2">
+                            <Tag className="w-4 h-4" /> Calificación
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div className="space-y-2">
-                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Objetivo Principal</label>
-                                <select
-                                    className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm font-bold text-[#414042] focus:outline-none focus:ring-2 focus:ring-[#f6c71e]/50"
-                                    value={normalizeObjective(lead.main_objective)}
-                                    onChange={(e) => handleUpdateLead('main_objective', e.target.value)}
-                                >
-                                    <option value="">Seleccionar...</option>
-                                    <option value="Protección Familiar">Protección Familiar</option>
-                                    <option value="Ahorro para retiro">Ahorro para retiro</option>
-                                    <option value="Educación para tus hijos">Educación para tus hijos</option>
-                                </select>
+                                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">Objetivo Principal</label>
+                                <div className="relative">
+                                    <select
+                                        className="w-full bg-white border border-brand-border rounded-xl px-4 py-2.5 text-sm font-medium text-brand-text focus:outline-none focus:ring-2 focus:ring-brand-accent/20 focus:border-brand-accent transition-all appearance-none"
+                                        value={normalizeObjective(lead.main_objective)}
+                                        onChange={(e) => handleUpdateLead('main_objective', e.target.value)}
+                                    >
+                                        <option value="">Seleccionar...</option>
+                                        <option value="Protección Familiar">Protección Familiar</option>
+                                        <option value="Ahorro para retiro">Ahorro para retiro</option>
+                                        <option value="Educación para tus hijos">Educación para tus hijos</option>
+                                    </select>
+                                    <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none text-gray-400">
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                                    </div>
+                                </div>
                             </div>
                             <div className="space-y-2">
-                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Ingresos Estables</label>
-                                <select
-                                    className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm font-bold text-[#414042] focus:outline-none focus:ring-2 focus:ring-[#f6c71e]/50"
-                                    value={normalizeYesNo(lead.stable_income)}
-                                    onChange={(e) => handleUpdateLead('stable_income', e.target.value)}
-                                >
-                                    <option value="">Seleccionar...</option>
-                                    <option value="Si">Si</option>
-                                    <option value="No">No</option>
-                                </select>
+                                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">Ingresos Estables</label>
+                                <div className="relative">
+                                    <select
+                                        className="w-full bg-white border border-brand-border rounded-xl px-4 py-2.5 text-sm font-medium text-brand-text focus:outline-none focus:ring-2 focus:ring-brand-accent/20 focus:border-brand-accent transition-all appearance-none"
+                                        value={normalizeYesNo(lead.stable_income)}
+                                        onChange={(e) => handleUpdateLead('stable_income', e.target.value)}
+                                    >
+                                        <option value="">Seleccionar...</option>
+                                        <option value="Si">Si</option>
+                                        <option value="No">No</option>
+                                    </select>
+                                    <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none text-gray-400">
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                                    </div>
+                                </div>
                             </div>
                             <div className="space-y-2">
-                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Condición de Salud</label>
-                                <select
-                                    className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm font-bold text-[#414042] focus:outline-none focus:ring-2 focus:ring-[#f6c71e]/50"
-                                    value={normalizeYesNo(lead.health_condition)}
-                                    onChange={(e) => handleUpdateLead('health_condition', e.target.value)}
-                                >
-                                    <option value="">Seleccionar...</option>
-                                    <option value="Si">Si</option>
-                                    <option value="No">No</option>
-                                </select>
+                                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">Condición de Salud</label>
+                                <div className="relative">
+                                    <select
+                                        className="w-full bg-white border border-brand-border rounded-xl px-4 py-2.5 text-sm font-medium text-brand-text focus:outline-none focus:ring-2 focus:ring-brand-accent/20 focus:border-brand-accent transition-all appearance-none"
+                                        value={normalizeYesNo(lead.health_condition)}
+                                        onChange={(e) => handleUpdateLead('health_condition', e.target.value)}
+                                    >
+                                        <option value="">Seleccionar...</option>
+                                        <option value="Si">Si</option>
+                                        <option value="No">No</option>
+                                    </select>
+                                    <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none text-gray-400">
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    {/* AI Insights Card */}
+                    {/* AI Insights Card (Replaced with new Component) */}
                     {conversation ? (
-                        <div className="bg-[#414042] rounded-[2rem] shadow-xl p-8 text-white relative overflow-hidden group">
-                            <div className="absolute top-0 right-0 p-8 opacity-10">
-                                <MessageSquare className="w-32 h-32" />
-                            </div>
-                            <div className="relative z-10">
-                                <div className="flex justify-between items-center mb-6">
-                                    <h3 className="text-xs font-black text-[#f6c71e] uppercase tracking-[0.2em] flex items-center gap-2">
-                                        <div className="w-2 h-2 rounded-full bg-[#f6c71e] animate-pulse" />
-                                        Análisis de Conversación AI
-                                    </h3>
-                                    <span className="text-[10px] font-bold opacity-60">ID: {conversation.conversation_id?.substring(0, 8)}</span>
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
-                                    <div className="md:col-span-8 space-y-4">
-                                        <p className="text-lg font-bold leading-tight group-hover:text-[#f6c71e]/90 transition-colors">
-                                            {conversation.summary || 'El agente AI conversó con el lead para calificar sus necesidades financieros.'}
-                                        </p>
-                                        <div className="h-px bg-white/10 w-full" />
-                                        <div>
-                                            <p className="text-[10px] font-bold text-white/40 uppercase mb-3">Transcripción de la llamada</p>
-                                            <div className="bg-black/20 rounded-2xl p-4 text-xs font-mono text-white/80 max-h-40 overflow-y-auto custom-scrollbar italic leading-relaxed">
-                                                "{conversation.transcript}"
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="md:col-span-4 bg-white/5 rounded-3xl p-6 border border-white/10 flex flex-col justify-between">
-                                        <div>
-                                            <p className="text-[10px] font-bold text-[#f6c71e] uppercase tracking-widest mb-1">Outcome</p>
-                                            <p className="text-xl font-black capitalize tracking-tight italic">
-                                                {conversation.outcome?.call_outcome || 'Calificado'}
-                                            </p>
-                                        </div>
-
-                                        <div className="mt-8 border-t border-white/10 pt-4">
-                                            {conversation.scheduled_datetime ? (
-                                                <div className="space-y-1">
-                                                    <p className="text-[10px] font-bold text-green-400 uppercase flex items-center gap-1">
-                                                        <Calendar className="w-3 h-3" /> Cita Agendada
-                                                    </p>
-                                                    <p className="text-sm font-bold">{new Date(conversation.scheduled_datetime).toLocaleString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
-                                                    <p className="text-[10px] opacity-60">Canal: {conversation.scheduled_channel}</p>
-                                                </div>
-                                            ) : (
-                                                <p className="text-[10px] font-bold text-white/40 uppercase">No se agendó cita en esta llamada</p>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                        <ElevenLabsCallCard conversation={conversation} leadState={lead.state} />
                     ) : (
-                        <div className="bg-gray-50 rounded-[2rem] border-2 border-dashed border-gray-200 p-12 text-center">
-                            <div className="w-16 h-16 bg-white rounded-2xl shadow-sm border border-gray-100 flex items-center justify-center mx-auto mb-4 text-gray-300">
-                                <MessageSquare className="w-8 h-8" />
+                        <div className="bg-brand-bg rounded-2xl border border-brand-border p-10 text-center">
+                            <div className="w-14 h-14 bg-white rounded-xl shadow-sm border border-brand-border flex items-center justify-center mx-auto mb-4 text-gray-300">
+                                <MessageSquare className="w-6 h-6" />
                             </div>
-                            <h4 className="text-[#414042] font-bold">Sin conversaciones AI</h4>
-                            <p className="text-xs text-gray-400 max-w-[240px] mx-auto mt-1">Inicia una llamada para generar transcripciones y resúmenes automáticos.</p>
+                            <h4 className="text-brand-text font-semibold text-sm">Sin conversaciones AI</h4>
+                            <p className="text-xs text-gray-400 mt-1">Inicia una llamada para generar datos.</p>
                         </div>
                     )}
 
                     {/* Notes Section */}
-                    <div className="bg-white rounded-[2rem] shadow-sm border border-[#d9d9d9] overflow-hidden">
-                        <div className="p-8 border-b border-[#d9d9d9] flex justify-between items-center">
-                            <h3 className="text-xs font-black text-[#414042]/40 uppercase tracking-widest flex items-center gap-2">
-                                <Tag className="w-4 h-4" /> Bitácora de Notas
+                    <div className="bg-white rounded-2xl shadow-sm border border-brand-border overflow-hidden">
+                        <div className="px-6 py-4 border-b border-brand-border flex justify-between items-center bg-gray-50/50">
+                            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                                <Tag className="w-4 h-4" /> Bitácora
                             </h3>
                         </div>
-                        <div className="p-8">
-                            <div className="flex gap-4">
+                        <div className="p-6">
+                            <div className="flex gap-3">
                                 <input
-                                    className="flex-1 bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#f6c71e]/50 focus:bg-white transition-all"
-                                    placeholder="Registrar un comentario o actualización..."
+                                    className="flex-1 bg-white border border-brand-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-accent/20 focus:border-brand-accent transition-all"
+                                    placeholder="Escribe una nota..."
                                     value={note}
                                     onChange={e => setNote(e.target.value)}
                                     onKeyDown={e => e.key === 'Enter' && handleAddNote()}
                                 />
                                 <button
                                     onClick={handleAddNote}
-                                    className="px-8 py-3 bg-[#414042] text-white text-sm font-bold rounded-xl hover:bg-black transition-all shadow-lg active:scale-95"
+                                    className="px-6 py-2.5 bg-brand-primary text-white text-sm font-semibold rounded-xl hover:bg-brand-secondary transition-colors shadow-sm"
                                 >
                                     Publicar
                                 </button>
@@ -431,34 +474,34 @@ export default function LeadDetail() {
                         </div>
                     </div>
 
-                    {/* Details Tabs (SMS / Calls) */}
-                    <div className="bg-white rounded-[2rem] shadow-sm border border-[#d9d9d9] overflow-hidden">
-                        <div className="grid grid-cols-1 text-center border-b border-[#d9d9d9]">
-                            <div className="py-4 text-[10px] font-black text-[#414042] uppercase tracking-widest bg-gray-50/50">Llamadas ({callEvents.length})</div>
+                    {/* Details Tabs (Calls) */}
+                    <div className="bg-white rounded-2xl shadow-sm border border-brand-border overflow-hidden">
+                        <div className="px-6 py-4 border-b border-brand-border bg-gray-50/50">
+                            <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Historial de Llamadas ({callEvents.length})</span>
                         </div>
-                        <div className="p-0">
+                        <div>
                             {callEvents.length > 0 ? (
                                 <table className="w-full text-left">
-                                    <thead className="bg-gray-50/30">
-                                        <tr className="border-b border-gray-100">
-                                            <th className="px-8 py-3 text-[10px] font-bold text-gray-400 uppercase">Estado</th>
-                                            <th className="px-8 py-3 text-[10px] font-bold text-gray-400 uppercase">Duración</th>
-                                            <th className="px-8 py-3 text-[10px] font-bold text-gray-400 uppercase text-right">Fecha</th>
+                                    <thead className="bg-gray-50 border-b border-gray-100">
+                                        <tr>
+                                            <th className="px-6 py-3 text-[10px] font-bold text-gray-400 uppercase">Estado</th>
+                                            <th className="px-6 py-3 text-[10px] font-bold text-gray-400 uppercase">Duración</th>
+                                            <th className="px-6 py-3 text-[10px] font-bold text-gray-400 uppercase text-right">Fecha</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-gray-50">
+                                    <tbody className="divide-y divide-gray-100">
                                         {callEvents.map(call => (
                                             <tr key={call.id} className="hover:bg-gray-50/50 transition-colors">
-                                                <td className="px-8 py-4">
+                                                <td className="px-6 py-3">
                                                     <span className={cn(
-                                                        "text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-tighter",
-                                                        call.status_crm === 'EXITOSA' ? "bg-green-50 text-green-600" : "bg-red-50 text-red-600"
+                                                        "text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wide",
+                                                        call.status_crm === 'EXITOSA' ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
                                                     )}>
                                                         {call.status_crm}
                                                     </span>
                                                 </td>
-                                                <td className="px-8 py-4 text-xs font-bold text-[#414042]">{call.duration_seconds}s</td>
-                                                <td className="px-8 py-4 text-[10px] font-bold text-gray-400 text-right">
+                                                <td className="px-6 py-3 text-xs font-medium text-brand-text">{call.duration_seconds}s</td>
+                                                <td className="px-6 py-3 text-[10px] font-medium text-gray-400 text-right">
                                                     {new Date(call.created_at).toLocaleString()}
                                                 </td>
                                             </tr>
@@ -477,23 +520,22 @@ export default function LeadDetail() {
 
                     {/* Next Action / Schedule Status */}
                     {schedule && new Date(schedule.next_attempt_at) > new Date() && (
-                        <div className="bg-white rounded-[2rem] shadow-sm border border-blue-100 p-8 relative overflow-hidden">
-                            <div className="absolute top-0 right-0 p-4 opacity-5">
-                                <Clock className="w-24 h-24 text-blue-600" />
+                        <div className="bg-white rounded-2xl shadow-sm border border-blue-100 p-6 relative overflow-hidden group">
+                            <div className="absolute -top-6 -right-6 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                                <Clock className="w-32 h-32 text-blue-600" />
                             </div>
-                            <h3 className="text-xs font-black text-blue-600 uppercase tracking-widest flex items-center gap-2 mb-4">
+                            <h3 className="text-xs font-bold text-blue-600 uppercase tracking-wider flex items-center gap-2 mb-4">
                                 <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-                                Seguimiento Automático
+                                Próxima Llamada
                             </h3>
 
-                            <p className="text-sm font-bold text-[#414042] mb-1">
+                            <p className="text-sm font-semibold text-brand-text mb-1">
                                 {schedule.attempts_today > 0
-                                    ? "Llamada no atendida."
-                                    : "Llamada Inicial Pendiente."}
+                                    ? "Reintento programado"
+                                    : "Llamada inicial pendiente"}
                             </p>
-                            <p className="text-xs text-gray-500 leading-relaxed">
-                                Se agenda para el siguiente bloque: <br />
-                                <strong className="text-blue-600 text-sm">
+                            <div className="mt-3 inline-block bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">
+                                <p className="text-xs text-blue-700 font-medium">
                                     {new Date(schedule.next_attempt_at).toLocaleString('es-ES', {
                                         weekday: 'long',
                                         hour: '2-digit',
@@ -501,41 +543,71 @@ export default function LeadDetail() {
                                         day: 'numeric',
                                         month: 'short'
                                     })}
-                                </strong>
-                            </p>
+                                </p>
+                            </div>
                         </div>
                     )}
 
                     {/* Activity Timeline */}
-                    <div className="bg-white rounded-[2rem] shadow-sm border border-[#d9d9d9] p-8">
-                        <div className="flex justify-between items-center mb-8">
-                            <h3 className="text-xs font-black text-[#414042]/40 uppercase tracking-widest flex items-center gap-2">
-                                <Clock className="w-4 h-4" /> Timeline de Actividad
+                    <div className="bg-white rounded-2xl shadow-sm border border-brand-border p-6">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                                <Clock className="w-4 h-4" /> Timeline
                             </h3>
-                            <button onClick={fetchLeadData} className="p-2 hover:bg-gray-50 rounded-lg transition-colors">
-                                <Hash className="w-4 h-4 text-gray-300" />
+                            <button onClick={fetchLeadData} className="p-1.5 hover:bg-gray-50 rounded-md transition-colors text-gray-400 hover:text-brand-primary">
+                                <Hash className="w-3.5 h-3.5" />
                             </button>
                         </div>
-                        <div className="relative pr-4">
+                        <div className="relative">
                             <Timeline events={events.filter(e => e.event_type.startsWith('call.')).slice(0, 5)} />
                         </div>
                     </div>
 
-                    {/* Side Info / CTA? */}
-                    <div className="bg-gradient-to-br from-[#f6c71e] to-[#e5b810] rounded-[2rem] p-8 text-[#414042] shadow-xl shadow-[#f6c71e]/10">
-                        <h4 className="text-sm font-black uppercase tracking-widest mb-2 italic">Tip de CRM</h4>
-                        <p className="text-xs font-medium leading-relaxed opacity-80">
-                            Mantén el estado actualizado para que el sistema de orquestación pueda priorizar el seguimiento automático.
-                        </p>
-                        <div className="mt-8">
-                            <button className="w-full bg-[#414042] text-white py-4 rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg hover:bg-black transition-all flex items-center justify-center gap-2">
-                                <ExternalLink className="w-4 h-4" /> Perfil Externo
-                            </button>
+                    {/* Tip Card */}
+                    <div className="bg-brand-bg rounded-2xl p-6 border border-brand-border">
+                        <div className="flex items-start gap-3">
+                            <div className="p-2 bg-brand-accent/10 rounded-lg text-brand-accent">
+                                <Info className="w-4 h-4" />
+                            </div>
+                            <div>
+                                <h4 className="text-xs font-bold text-brand-primary uppercase tracking-wide mb-1">Tip de Gestión</h4>
+                                <p className="text-xs text-gray-500 leading-relaxed">
+                                    Mantén el estado actualizado para que el sistema priorice el seguimiento.
+                                </p>
+                            </div>
                         </div>
                     </div>
 
                 </div>
             </div>
+
+            {/* Transcription Modal */}
+            <Modal
+                isOpen={isTranscriptModalOpen}
+                onClose={() => setIsTranscriptModalOpen(false)}
+                title="Transcripción de Llamada"
+            >
+                <div className="space-y-6">
+                    <div className="bg-brand-primary text-white p-6 rounded-xl shadow-inner">
+                        <div className="flex items-center gap-3 mb-3">
+                            <div className="w-1.5 h-1.5 rounded-full bg-brand-accent" />
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-brand-accent">Resumen</span>
+                        </div>
+                        <p className="text-sm font-medium leading-relaxed opacity-90">
+                            {conversation?.summary}
+                        </p>
+                    </div>
+
+                    <div className="space-y-3">
+                        <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest border-b border-gray-100 pb-2">
+                            Diálogo Completo
+                        </h4>
+                        <div className="bg-gray-50 rounded-xl p-6 text-sm font-mono text-brand-text leading-relaxed whitespace-pre-wrap border border-gray-100 max-h-[60vh] overflow-y-auto">
+                            {conversation?.transcript}
+                        </div>
+                    </div>
+                </div>
+            </Modal>
         </div>
     );
 }

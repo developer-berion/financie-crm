@@ -48,10 +48,10 @@ export default function LeadTable({ leads, title = 'Reporte de Leads' }: LeadTab
     };
 
     return (
-        <div className="bg-[#ffffff] rounded-[2rem] shadow-xl border border-[#d9d9d9] overflow-hidden">
-            <div className="px-8 py-6 border-b border-[#d9d9d9] flex justify-between items-center bg-gray-50/50">
-                <h2 className="text-xl font-bold text-[#414042]">{title}</h2>
-                <button className="text-sm font-semibold text-[#f6c71e] hover:text-[#e5b810] flex items-center gap-1 transition-colors">
+        <div className="bg-white rounded-[2rem] shadow-sm border border-brand-border overflow-hidden">
+            <div className="px-8 py-6 border-b border-brand-border flex justify-between items-center bg-brand-bg/50">
+                <h2 className="text-xl font-bold text-brand-primary">{title}</h2>
+                <button className="text-sm font-semibold text-brand-accent hover:text-yellow-600 flex items-center gap-1 transition-colors">
                     Ver todo <ExternalLink className="w-4 h-4" />
                 </button>
             </div>
@@ -59,35 +59,35 @@ export default function LeadTable({ leads, title = 'Reporte de Leads' }: LeadTab
             <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                     <thead>
-                        <tr className="bg-gray-50/50 border-b border-[#d9d9d9]">
-                            <th className="px-8 py-4 text-xs font-bold text-[#414042]/60 uppercase tracking-wider w-16">#</th>
-                            <th className="px-8 py-4 text-xs font-bold text-[#414042]/60 uppercase tracking-wider">Lead</th>
-                            <th className="px-8 py-4 text-xs font-bold text-[#414042]/60 uppercase tracking-wider">Email</th>
-                            <th className="px-8 py-4 text-xs font-bold text-[#414042]/60 uppercase tracking-wider">Teléfono</th>
-                            <th className="px-8 py-4 text-xs font-bold text-[#414042]/60 uppercase tracking-wider">Estatus</th>
-                            <th className="px-8 py-4 text-xs font-bold text-[#414042]/60 uppercase tracking-wider">Fecha</th>
-                            <th className="px-8 py-4 text-xs font-bold text-[#414042]/60 uppercase tracking-wider">Estado</th>
-                            <th className="px-8 py-4 text-xs font-bold text-[#414042]/60 uppercase tracking-wider">Llamada</th>
+                        <tr className="bg-brand-bg/50 border-b border-brand-border">
+                            <th className="px-8 py-4 text-xs font-bold text-brand-text/60 uppercase tracking-wider w-16">#</th>
+                            <th className="px-8 py-4 text-xs font-bold text-brand-text/60 uppercase tracking-wider">Lead</th>
+                            <th className="px-8 py-4 text-xs font-bold text-brand-text/60 uppercase tracking-wider">Email</th>
+                            <th className="px-8 py-4 text-xs font-bold text-brand-text/60 uppercase tracking-wider">Teléfono</th>
+                            <th className="px-8 py-4 text-xs font-bold text-brand-text/60 uppercase tracking-wider">Estatus</th>
+                            <th className="px-8 py-4 text-xs font-bold text-brand-text/60 uppercase tracking-wider">Fecha</th>
+                            <th className="px-8 py-4 text-xs font-bold text-brand-text/60 uppercase tracking-wider">Estado</th>
+                            <th className="px-8 py-4 text-xs font-bold text-brand-text/60 uppercase tracking-wider">Llamada</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#d9d9d9]">
+                    <tbody className="divide-y divide-brand-border">
                         {currentLeads.map((lead, index) => (
-                            <tr key={lead.id} className="hover:bg-gray-50/80 transition-colors group">
-                                <td className="px-8 py-5 text-sm font-medium text-[#414042]/40">
+                            <tr key={lead.id} className="hover:bg-brand-bg transition-colors group">
+                                <td className="px-8 py-5 text-sm font-medium text-brand-text/40">
                                     {startIndex + index + 1}
                                 </td>
                                 <td className="px-8 py-5">
                                     <Link
                                         to={`/leads/${lead.id}`}
-                                        className="text-sm font-bold text-[#414042] hover:text-[#f6c71e] transition-colors cursor-pointer"
+                                        className="text-sm font-bold text-brand-primary hover:text-brand-accent transition-colors cursor-pointer"
                                     >
                                         {lead.full_name}
                                     </Link>
                                 </td>
-                                <td className="px-8 py-5 text-sm text-[#414042] font-medium">
+                                <td className="px-8 py-5 text-sm text-brand-text font-medium">
                                     {lead.email || '-'}
                                 </td>
-                                <td className="px-8 py-5 text-sm text-[#414042] font-medium">
+                                <td className="px-8 py-5 text-sm text-brand-text font-medium">
                                     {lead.phone}
                                 </td>
                                 <td className="px-8 py-5">
@@ -98,14 +98,14 @@ export default function LeadTable({ leads, title = 'Reporte de Leads' }: LeadTab
                                         {lead.status}
                                     </span>
                                 </td>
-                                <td className="px-8 py-5 text-sm text-[#414042]/70 font-medium">
+                                <td className="px-8 py-5 text-sm text-brand-text/70 font-medium">
                                     {new Date(lead.created_at).toLocaleDateString('es-ES', {
                                         day: '2-digit',
                                         month: '2-digit',
                                         year: 'numeric'
                                     })}
                                 </td>
-                                <td className="px-8 py-5 text-sm text-[#414042]/70 font-medium">
+                                <td className="px-8 py-5 text-sm text-brand-text/70 font-medium">
                                     {lead.state || '-'}
                                 </td>
 
@@ -123,18 +123,18 @@ export default function LeadTable({ leads, title = 'Reporte de Leads' }: LeadTab
                 </table>
             </div>
 
-            <div className="px-8 py-6 border-t border-[#d9d9d9] flex justify-between items-center bg-gray-50/50">
-                <span className="text-sm text-[#414042]/60 font-medium">
-                    Mostrando <span className="text-[#414042] font-bold">{startIndex + 1}</span> a <span className="text-[#414042] font-bold">{Math.min(startIndex + itemsPerPage, leads.length)}</span> de <span className="text-[#414042] font-bold">{leads.length}</span> entradas
+            <div className="px-8 py-6 border-t border-brand-border flex justify-between items-center bg-brand-bg/50">
+                <span className="text-sm text-brand-text/60 font-medium">
+                    Mostrando <span className="text-brand-text font-bold">{startIndex + 1}</span> a <span className="text-brand-text font-bold">{Math.min(startIndex + itemsPerPage, leads.length)}</span> de <span className="text-brand-text font-bold">{leads.length}</span> entradas
                 </span>
 
                 <div className="flex items-center gap-2">
                     <button
                         onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                         disabled={currentPage === 1}
-                        className="p-2 rounded-xl border border-[#d9d9d9] hover:bg-white transition-all disabled:opacity-40 disabled:hover:bg-transparent"
+                        className="p-2 rounded-xl border border-brand-border hover:bg-white transition-all disabled:opacity-40 disabled:hover:bg-transparent"
                     >
-                        <ChevronLeft className="w-5 h-5 text-[#414042]" />
+                        <ChevronLeft className="w-5 h-5 text-brand-text" />
                     </button>
 
                     <div className="flex gap-1">
@@ -149,8 +149,8 @@ export default function LeadTable({ leads, title = 'Reporte de Leads' }: LeadTab
                                         className={cn(
                                             "w-10 h-10 rounded-xl text-sm font-bold transition-all",
                                             currentPage === pageNum
-                                                ? "bg-[#f6c71e] text-[#0f171a] shadow-lg shadow-[#f6c71e]/30"
-                                                : "hover:bg-white text-[#414042]/60 hover:text-[#414042]"
+                                                ? "bg-brand-accent text-brand-primary shadow-lg shadow-brand-accent/30"
+                                                : "hover:bg-white text-brand-text/60 hover:text-brand-text"
                                         )}
                                     >
                                         {pageNum}
@@ -167,9 +167,9 @@ export default function LeadTable({ leads, title = 'Reporte de Leads' }: LeadTab
                     <button
                         onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                         disabled={currentPage === totalPages}
-                        className="p-2 rounded-xl border border-[#d9d9d9] hover:bg-white transition-all disabled:opacity-40 disabled:hover:bg-transparent"
+                        className="p-2 rounded-xl border border-brand-border hover:bg-white transition-all disabled:opacity-40 disabled:hover:bg-transparent"
                     >
-                        <ChevronRight className="w-5 h-5 text-[#414042]" />
+                        <ChevronRight className="w-5 h-5 text-brand-text" />
                     </button>
                 </div>
             </div>

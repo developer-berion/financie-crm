@@ -57,14 +57,25 @@ serve(async (req) => {
         }
 
         // 4. Trigger Call via ElevenLabs API
-        let phone = lead.phone.replace(/\D/g, ''); 
+        let rawPhone = lead.phone || '';
+        let phone = rawPhone.replace(/\D/g, ''); 
         
+        console.log(`[MakeOutboundCall] LeadID: ${lead.id}, DB Phone: ${rawPhone}, Cleaned: ${phone}`);
+
         if (phone.length === 10) {
             phone = '1' + phone;
         }
         
         const formattedPhone = `+${phone}`; 
         
+        // Safety Check: Prevent calling self (infinity loop / busy signal)
+        // We need to resolve what the "Agent Number" is. 
+        // We know from logs it is '+17863212663' but we only have the Phone ID here.
+        // We will just log heavily for now and maybe alert if it matches a known bad number.
+        
+        console.log(`[MakeOutboundCall] Final Target Phone: ${formattedPhone}`);
+        console.log(`[MakeOutboundCall] Using Agent Phone ID: ${phoneId}`);
+
         const payload = {
             agent_id: agentId,
             agent_phone_number_id: phoneId,
@@ -105,12 +116,17 @@ serve(async (req) => {
                 call_id: result.call_id,
                 agent_id: agentId,
                 context_sent: {
-                    date: dateStr,
-                    time: timeStr,
-                    state: stateName
+                    date: context.signup_date,
+                    time: context.signup_time,
+                    state: context.lead_state
                 }
             }
         });
+
+        // 6. Link Call ID to Lead (CRITICAL for Webhook)
+        await supabase.from('leads').update({
+            last_call_id: result.call_id
+        }).eq('id', lead.id);
 
         return new Response(JSON.stringify({ success: true, call_id: result.call_id }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }

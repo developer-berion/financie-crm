@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import logo from '../assets/logo-financiegroup.png';
 
 export default function Login() {
+    // Force re-render with new colors
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);

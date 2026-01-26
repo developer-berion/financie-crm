@@ -39,7 +39,7 @@ const FULL_STATE_TO_ABBR: Record<string, string> = {
 
 export function getSafeCallTime(stateStr?: string): Date {
     const now = new Date();
-    const fallback = new Date(now.getTime() + 2 * 60 * 1000); // 2 min delay
+    const fallback = new Date(now.getTime() + 5 * 60 * 1000); // 5 min delay
     
     if (!stateStr) return fallback;
     
@@ -288,6 +288,8 @@ export async function sendSms(to: string, body: string) {
     }
 }
 
+
+
 export async function triggerCall(leadId: string) {
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -309,15 +311,25 @@ export async function triggerCall(leadId: string) {
             }
         );
         
-        const data = await response.json();
+        let data;
+        let textBody = '';
+        try {
+            textBody = await response.text();
+            data = JSON.parse(textBody);
+        } catch (e) {
+            data = { raw: textBody };
+        }
         
         if (!response.ok) {
-            return { success: false, error: data.error || 'Trigger failed' };
+            const errorMsg = data.error || data.message || (`Status ${response.status}: ${textBody.substring(0, 100)}`) || 'Trigger failed';
+            console.error('Trigger Call Failed:', errorMsg);
+            return { success: false, error: errorMsg };
         }
         
         return { success: true, call_id: data.call_id };
     } catch (error) {
-        return { success: false, error: error.message };
+        console.error('Trigger Call Exception:', error);
+        return { success: false, error: `Exception: ${error.message}` };
     }
 }
 
@@ -331,6 +343,21 @@ export async function orchestrateLead(supabase: any, lead: any) {
     const fullName = lead.full_name;
 
     if (!phone) return { success: false, error: 'No phone number' };
+
+    // Safety Check: Prevent calling self (avoid busy signal/infinite loop)
+    const agentNumber = '+17863212663'; // Known agent number from logs
+    const cleanedPhone = phone.replace(/\D/g, '');
+    const cleanedAgent = agentNumber.replace(/\D/g, '');
+    
+    if (cleanedPhone === cleanedAgent || (cleanedPhone.length === 10 && '1' + cleanedPhone === cleanedAgent)) {
+        console.warn(`[Orchestrate] Skipping lead ${leadId} because it matches Agent Number ${agentNumber}`);
+        await supabase.from('lead_events').insert({
+            lead_id: leadId,
+            event_type: 'orchestration.skipped_self_call',
+            payload: { phone: phone, agent_number: agentNumber }
+        });
+        return { success: true, skipped: 'self_call' };
+    }
 
     // 1. Immediate SMS (DISABLED TEMPORARILY)
     // const smsBody = `Hola ${fullName} hemos recibido tus datos. Un agente se pondrá en contacto contigo en los próximos minutos.`;
@@ -389,21 +416,9 @@ export async function orchestrateLead(supabase: any, lead: any) {
            payload: { reason: 'orchestration_triggered', scheduled_to: nextAttempt.toISOString() }
         });
 
-        // Instant Tier: If scheduled for roughly "now" (safe window), trigger immediately
-        const isImmediate = (nextAttempt.getTime() - new Date().getTime()) < (5 * 60 * 1000);
-        if (isImmediate && jobInsert.data) {
-            console.log(`Instant Trigger for lead ${leadId}`);
-            const callResult = await triggerCall(leadId);
-            if (callResult.success) {
-                await supabase.from('jobs').update({
-                    status: 'COMPLETED'
-                }).eq('id', jobInsert.data.id);
-            } else {
-                await supabase.from('jobs').update({
-                    error: callResult.error
-                }).eq('id', jobInsert.data.id);
-            }
-        }
+        // REMOVED: Immediate trigger logic. All calls must go through the scheduler (pg_cron)
+        // to ensure the 5-minute delay is respected and to avoid race conditions.
+        console.log(`[Orchestrate] Call scheduled for ${nextAttempt.toISOString()}. Job PENDING.`);
     } else {
         await supabase.from('lead_events').insert({
             lead_id: leadId,

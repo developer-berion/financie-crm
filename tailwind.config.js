@@ -14,13 +14,12 @@ export default {
         'background-dark': '#0f171a',
         'deep-teal': '#19272b',
         'deep-teal-dark': '#0d1417',
-        'divider': '#d9d9d9',
-        // New Brand Colors
-        'brand-primary': '#0A2A5E',
-        'brand-secondary': '#1F6AE1',
-        'brand-accent': '#F4C430',
+        // New Brand Colors (Extracted from financiegroup.com)
+        'brand-primary': '#19272B', // Deep Teal/Charcoal Main Brand Color
+        'brand-secondary': '#414042', // Button Background
+        'brand-accent': '#F6C71E', // Gold Accent
         'brand-bg': '#F5F7FA',
-        'brand-text': '#0B1220',
+        'brand-text': '#20282D',
         'brand-border': '#E3E7EF',
       }
     },

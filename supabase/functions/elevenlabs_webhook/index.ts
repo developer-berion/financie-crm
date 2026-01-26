@@ -57,33 +57,73 @@ serve(async (req) => {
     }
 
     if (leadId) {
-        if (eventType === 'post_call_transcription') {
-            const analysis = body.analysis || {};
-            const transcript = body.transcript || '';
-            const outcome = analysis.call_outcome || {};
-            
-            // Extract structured outcome
-            const resData = {
-                lead_id: leadId,
-                call_sid: callId,
-                conversation_id: body.conversation_id,
-                transcript: transcript,
-                summary: analysis.summary,
-                outcome: analysis,
-                scheduled_datetime: analysis.scheduled_at || analysis.appointment_time,
-                scheduled_channel: analysis.channel || analysis.scheduled_channel,
-                do_not_call: analysis.do_not_call === true,
-            };
+                // Fetch current lead data to check for empty fields
+                const { data: currentLead } = await supabase
+                    .from('leads')
+                    .select('main_objective, stable_income, health_condition')
+                    .eq('id', leadId)
+                    .single();
 
-            await supabase.from('conversation_results').upsert(resData, { onConflict: 'conversation_id' });
+                if (eventType === 'post_call_transcription') {
+                    const analysis = body.analysis || {};
+                    const transcript = body.transcript || '';
+                    
+                    // Extract structured outcome
+                    const resData = {
+                        lead_id: leadId,
+                        call_sid: callId,
+                        conversation_id: body.conversation_id,
+                        transcript: transcript,
+                        summary: analysis.summary,
+                        outcome: analysis,
+                        scheduled_datetime: analysis.scheduled_at || analysis.appointment_time,
+                        scheduled_channel: analysis.channel || analysis.scheduled_channel,
+                        do_not_call: analysis.do_not_call === true,
+                    };
 
-            // Update Lead Meta
-            const leadUpdate: any = {};
-            if (resData.do_not_call) leadUpdate.do_not_call = true;
-            
-            if (Object.keys(leadUpdate).length > 0) {
-                await supabase.from('leads').update(leadUpdate).eq('id', leadId);
-            }
+                    await supabase.from('conversation_results').upsert(resData, { onConflict: 'conversation_id' });
+
+                    // Update Lead Meta
+                    const leadUpdate: any = {};
+                    if (resData.do_not_call) leadUpdate.do_not_call = true;
+
+                    // AI Field Population Logic (Only if currently empty in DB)
+                    // Normalization helpers
+                    const normalizeYesNo = (val: string) => {
+                        if (!val) return null;
+                        const lower = String(val).toLowerCase().trim();
+                        if (['si', 'sí', 'yes', 'true'].includes(lower)) return 'Si';
+                        if (['no', 'false'].includes(lower)) return 'No';
+                        return val;
+                    };
+
+                    const normalizeObjective = (val: string) => {
+                         if (!val) return null;
+                         const lower = String(val).toLowerCase().trim();
+                         if (lower.includes('protección') || lower.includes('proteccion') || lower.includes('familiar')) return 'Protección Familiar';
+                         if (lower.includes('retiro')) return 'Ahorro para retiro';
+                         if (lower.includes('hijos') || lower.includes('educación') || lower.includes('educacion')) return 'Educación para tus hijos';
+                         return val;
+                    };
+
+                    if (analysis.main_objective && (!currentLead?.main_objective)) {
+                        const normalized = normalizeObjective(analysis.main_objective);
+                        if (normalized) leadUpdate.main_objective = normalized;
+                    }
+
+                    if (analysis.stable_income && (!currentLead?.stable_income)) {
+                        const normalized = normalizeYesNo(analysis.stable_income);
+                        if (normalized) leadUpdate.stable_income = normalized;
+                    }
+
+                    if (analysis.health_condition && (!currentLead?.health_condition)) {
+                        const normalized = normalizeYesNo(analysis.health_condition);
+                        if (normalized) leadUpdate.health_condition = normalized;
+                    }
+                    
+                    if (Object.keys(leadUpdate).length > 0) {
+                        await supabase.from('leads').update(leadUpdate).eq('id', leadId);
+                    }
 
             // Log event
             await supabase.from('lead_events').insert({
