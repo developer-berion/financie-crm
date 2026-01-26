@@ -27,3 +27,12 @@
   - Ejecución local del proyecto y revisión visual del Dashboard.
 - **Decisiones tomadas:** Se confía la detección de buzón enteramente a la IA del Agente (Prompt) en lugar de flags de API (`detect_voicemail`) que causaban conflictos (status stuck in `initiated`).
 - **Próximo:** Finalizar build y push a repositorio.
+## 2026-01-26
+- **Hecho:**
+  - Compilación exitosa del cliente (`npm run build`).
+  - Actualización de `Login.tsx` (ajustes visuales/funcionales).
+  - Optimización de Edge Functions (`make_outbound_call`, `meta_webhook`) y utilidades compartidas.
+  - Creación de migración SQL para columnas de contexto de registro (`signup_context`).
+  - Actualización de documentación y sincronización con repositorio remoto.
+- **Decisiones tomadas:** Se consolidan los cambios recientes en un solo commit de mantenimiento y mejoras.
+- **Próximo:** Despliegue en producción (Hostinger) y monitoreo de nuevos leads.

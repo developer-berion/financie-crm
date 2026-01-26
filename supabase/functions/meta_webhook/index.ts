@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { corsHeaders, getSupabaseClient, verifyMetaSignature } from "../shared-utils.ts";
+import { corsHeaders, getSupabaseClient, verifyMetaSignature, getLeadContext } from "../shared-utils.ts";
 
 serve(async (req) => {
   // 1. Verify Request
@@ -75,7 +75,8 @@ serve(async (req) => {
       // Note: Terms are implicit if they submitted the form, but we can check if there's a specific field.
       // Usually Meta doesn't send a "terms" field unless custom. We default to true if it comes from here.
       const termsAccepted = true; 
-      const metaCreatedAt = leadData.created_time; // Standard Meta field
+      const metaCreatedAt = leadData.created_time || new Date().toISOString(); 
+      const context = getLeadContext(state, metaCreatedAt);
 
       if (!phone) {
         // Without phone, we can't reliably process call logic (or strict constraint)
@@ -99,7 +100,9 @@ serve(async (req) => {
         await supabase.from('leads').update({
             updated_at: new Date().toISOString(),
             state: state,
-            meta_created_at: metaCreatedAt
+            meta_created_at: metaCreatedAt,
+            signup_date: context.signup_date,
+            signup_time: context.signup_time
             // optionally update other fields?
         }).eq('id', leadId);
       } else {
@@ -112,7 +115,9 @@ serve(async (req) => {
             status: 'Nuevo',
             state: state,
             terms_accepted: termsAccepted,
-            meta_created_at: metaCreatedAt
+            meta_created_at: metaCreatedAt,
+            signup_date: context.signup_date,
+            signup_time: context.signup_time
             // Default stage? We let default value handle it or fetch the ID of "Lead Nuevo"
         }).select().single();
         

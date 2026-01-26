@@ -11,3 +11,5 @@
 - Corrección de políticas RLS para acceso universal de usuarios autenticados.
 - Implementación de reglas de detección de buzón de voz (ElevenLabs) para colgar automáticamente.
 - Despliegue de función `make_outbound_call` con parámetros optimizados.
+- Soporte extendido en webhook de Meta y nuevas columnas `signup_context` para atribución de leads.
+- Ajustes de diseño y usabilidad en página de Login.

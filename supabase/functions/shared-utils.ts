@@ -87,6 +87,29 @@ export function getSafeCallTime(stateStr?: string): Date {
     }
 }
 
+export function getLeadTimeZone(stateStr?: string): string {
+    if (!stateStr) return 'America/New_York';
+    const normalized = stateStr.trim().toLowerCase();
+    const abbr = FULL_STATE_TO_ABBR[normalized] || normalized.toUpperCase();
+    return US_STATE_TIMEZONES[abbr] || 'America/New_York';
+}
+
+export function getLeadContext(stateStr: string | null, createdAt: string) {
+    const timeZone = getLeadTimeZone(stateStr || undefined);
+    const date = new Date(createdAt);
+
+    // Format Date: "25 de enero"
+    const dateStr = new Intl.DateTimeFormat('es-US', { day: 'numeric', month: 'long', timeZone }).format(date);
+    // Format Time: "11:21 PM"
+    const timeStr = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: 'numeric', hour12: true, timeZone }).format(date);
+
+    return {
+        signup_date: dateStr,
+        signup_time: timeStr,
+        lead_state: stateStr || 'Estados Unidos'
+    };
+}
+
 export function getSupabaseClient() {
   return createClient(
     Deno.env.get('SUPABASE_URL') ?? '',

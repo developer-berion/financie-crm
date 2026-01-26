@@ -15,6 +15,13 @@ export default {
         'deep-teal': '#19272b',
         'deep-teal-dark': '#0d1417',
         'divider': '#d9d9d9',
+        // New Brand Colors
+        'brand-primary': '#0A2A5E',
+        'brand-secondary': '#1F6AE1',
+        'brand-accent': '#F4C430',
+        'brand-bg': '#F5F7FA',
+        'brand-text': '#0B1220',
+        'brand-border': '#E3E7EF',
       }
     },
   },
