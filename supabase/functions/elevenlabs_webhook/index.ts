@@ -66,13 +66,15 @@ serve(async (req) => {
 
                 if (eventType === 'post_call_transcription') {
                     const analysis = body.analysis || {};
+                    let transcript = body.transcript || body.transcription || '';
+
                     // 3.1. Transcript Fallback: If missing, fetch from API
-                    if (!transcript && process.env.ELEVENLABS_API_KEY) {
+                    if (!transcript && Deno.env.get('ELEVENLABS_API_KEY')) {
                          try {
                             console.log(`Fetching transcript from API for conversation ${body.conversation_id}`);
                             const convResp = await fetch(`https://api.elevenlabs.io/v1/convai/conversations/${body.conversation_id}`, {
                                 headers: {
-                                    'xi-api-key': process.env.ELEVENLABS_API_KEY
+                                    'xi-api-key': Deno.env.get('ELEVENLABS_API_KEY') as string
                                 }
                             });
                             if (convResp.ok) {

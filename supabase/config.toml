@@ -411,3 +411,23 @@ entrypoint = "./functions/call_dispatcher/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/call_dispatcher/*.html" ]
+
+[functions.elevenlabs_webhook]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/elevenlabs_webhook/index.ts"
+
+[functions.call_webhook]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/call_webhook/index.ts"
+
+[functions.orchestrate_lead]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/orchestrate_lead/index.ts"
+
+[functions.health_monitor]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/health_monitor/index.ts"

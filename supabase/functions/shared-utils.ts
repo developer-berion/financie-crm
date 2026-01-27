@@ -290,6 +290,97 @@ export async function sendSms(to: string, body: string) {
 
 
 
+
+export async function sendEmail(lead: any) {
+    const apiKey = Deno.env.get('BREVO_API_KEY');
+    if (!apiKey) {
+        console.error('BREVO_API_KEY not set. Skipping email notification.');
+        return { success: false, error: 'Missing API Key' };
+    }
+
+    const recipients = [
+        { email: "biancagarcia.finances@gmail.com", name: "Bianca Garcia" },
+        { email: "victorstudent2411@gmail.com", name: "Victor Student" },
+        { email: "biancamga1981@gmail.com", name: "Bianca MGA" },
+        { email: "contactus@financiegroup.com", name: "Financie Group" }
+    ];
+
+    const subject = `New Lead: ${lead.full_name} - ${lead.status || 'Nuevo'}`;
+    
+    // Simple HTML Template
+    const htmlContent = `
+    <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 5px; }
+          .header { background-color: #007bff; color: white; padding: 10px; text-align: center; border-radius: 5px 5px 0 0; }
+          .content { padding: 20px; }
+          .footer { text-align: center; font-size: 0.8em; color: #777; margin-top: 20px; }
+          .field { margin-bottom: 10px; }
+          .label { font-weight: bold; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h2>New Lead Recieved</h2>
+          </div>
+          <div class="content">
+            <p>You have received a new lead from <strong>${lead.source || 'Unknown Source'}</strong>.</p>
+            
+            <div class="field"><span class="label">Name:</span> ${lead.full_name}</div>
+            <div class="field"><span class="label">Phone:</span> ${lead.phone}</div>
+            <div class="field"><span class="label">Email:</span> ${lead.email || 'N/A'}</div>
+            <div class="field"><span class="label">State:</span> ${lead.state || 'N/A'}</div>
+            <div class="field"><span class="label">Status:</span> ${lead.status}</div>
+            <div class="field"><span class="label">ID:</span> ${lead.id}</div>
+            
+            <p style="margin-top: 20px;">
+              <a href="https://financie-crm.vercel.app/leads/${lead.id}" style="background-color: #28a745; color: white; padding: 10px 15px; text-decoration: none; border-radius: 5px;">View Lead in CRM</a>
+            </p>
+          </div>
+          <div class="footer">
+            <p>Financie Group Notification System</p>
+          </div>
+        </div>
+      </body>
+    </html>
+    `;
+
+    console.log(`Sending email to ${recipients.length} recipients...`);
+    try {
+        const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+            method: 'POST',
+            headers: {
+                'accept': 'application/json',
+                'api-key': apiKey,
+                'content-type': 'application/json'
+            },
+            body: JSON.stringify({
+                sender: { name: "Financie CRM System", email: "contactus@financiegroup.com" },
+                to: recipients,
+                subject: subject,
+                htmlContent: htmlContent
+            })
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`Brevo Email Error (${response.status}):`, errorText);
+            return { success: false, error: errorText };
+        }
+
+        const data = await response.json();
+        console.log('Email sent successfully:', data);
+        return { success: true, messageId: data.messageId };
+
+    } catch (error) {
+        console.error('Exception sending email:', error);
+        return { success: false, error: error.message };
+    }
+}
+
 export async function triggerCall(leadId: string) {
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -358,6 +449,29 @@ export async function orchestrateLead(supabase: any, lead: any) {
         });
         return { success: true, skipped: 'self_call' };
     }
+
+
+    // 0. Send Email Notification (Check Result)
+    console.log(`Sending email notification for lead ${leadId}...`);
+    // We await this to ensure the runtime doesn't kill the process before the request completes.
+    const emailRes = await sendEmail(lead);
+    
+    if (!emailRes.success) {
+        await supabase.from('integration_logs').insert({
+            provider: 'brevo',
+            status: 'failure',
+            message_safe: 'Failed to send email notification',
+            payload_ref: { error: emailRes.error, lead_id: leadId }
+        });
+    } else {
+            await supabase.from('integration_logs').insert({
+            provider: 'brevo',
+            status: 'success',
+            message_safe: 'Email notification sent',
+            payload_ref: { messageId: emailRes.messageId, lead_id: leadId }
+        });
+    }
+
 
     // 1. Immediate SMS (DISABLED TEMPORARILY)
     // const smsBody = `Hola ${fullName} hemos recibido tus datos. Un agente se pondrá en contacto contigo en los próximos minutos.`;
