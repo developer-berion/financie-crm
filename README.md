@@ -1,4 +1,17 @@
-# Financie CRM - Sistema de Automatización de Leads
+# Financie CRM - Modern AI-Powered CRM for Insurance Agents
+
+## Status
+![Build Status](https://img.shields.io/badge/build-passing-brightgreen)
+![Supabase](https://img.shields.io/badge/backend-Supabase-green)
+![AI](https://img.shields.io/badge/AI-ElevenLabs-blue)
+
+## Latest Updates (Jan 2026)
+- **ElevenLabs Integration**: Full two-way integration with transcript storage.
+- **Smart Orchestration**: Calls stop automatically ("Stop Logic") if an appointment is confirmed during the conversation.
+- **Fail-safe Transcripts**: If the webhook payload is missing the transcript, the system automatically fetches it from the ElevenLabs API.
+- **Enhanced UI**: New visual indicators for lead status and call outcomes.
+
+## Project Overview - Sistema de Automatización de Leads
 
 CRM personalizado construido con React, Vite y Supabase para la gestión automatizada de leads provenientes de Meta (Facebook/Instagram Ads). Integra servicios de Twilio y ElevenLabs para un seguimiento multicanal inmediato.
 

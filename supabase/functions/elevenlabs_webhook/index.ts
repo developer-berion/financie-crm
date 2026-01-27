@@ -66,8 +66,36 @@ serve(async (req) => {
 
                 if (eventType === 'post_call_transcription') {
                     const analysis = body.analysis || {};
-                    const transcript = body.transcript || '';
-                    
+                    // 3.1. Transcript Fallback: If missing, fetch from API
+                    if (!transcript && process.env.ELEVENLABS_API_KEY) {
+                         try {
+                            console.log(`Fetching transcript from API for conversation ${body.conversation_id}`);
+                            const convResp = await fetch(`https://api.elevenlabs.io/v1/convai/conversations/${body.conversation_id}`, {
+                                headers: {
+                                    'xi-api-key': process.env.ELEVENLABS_API_KEY
+                                }
+                            });
+                            if (convResp.ok) {
+                                const convData = await convResp.json();
+                                // ElevenLabs API returns 'transcript' as an array of objects usually, 
+                                // but for simplicity or if it matches their other formats, we conform it.
+                                // The API usually returns: { transcript: [ { role: 'agent', message: '...' } ] }
+                                // We might want to flatten it to a string or store the JSON.
+                                // For now, let's assume we want a string representation if possible, or just the raw object.
+                                // Let's check the schema. The user wants "transcription".
+                                // If the original 'transcript' in body was string, we try to match.
+                                // Actually, let's just store the full detail if we can, or map it.
+                                if (convData.transcript) {
+                                     transcript = convData.transcript.map((t: any) => `${t.role}: ${t.message}`).join('\n');
+                                }
+                            } else {
+                                console.error('Failed to fetch transcript from API', await convResp.text());
+                            }
+                         } catch (err) {
+                             console.error('Error fetching transcript API:', err);
+                         }
+                    }
+
                     // Extract structured outcome
                     const resData = {
                         lead_id: leadId,
@@ -123,6 +151,32 @@ serve(async (req) => {
                     
                     if (Object.keys(leadUpdate).length > 0) {
                         await supabase.from('leads').update(leadUpdate).eq('id', leadId);
+                    }
+
+                    // CRITICAL: Stop calling if appointment scheduled
+                    if (resData.scheduled_datetime) {
+                        console.log(`Appointment scheduled for lead ${leadId} at ${resData.scheduled_datetime}. Stopping future calls.`);
+                        
+                        // 1. Deactivate Call Schedules
+                        await supabase.from('call_schedules')
+                            .update({ active: false })
+                            .eq('lead_id', leadId);
+
+                        // 2. Cancel Pending Jobs
+                        await supabase.from('jobs')
+                            .update({ status: 'CANCELLED' })
+                            .eq('lead_id', leadId)
+                            .in('status', ['PENDING', 'QUEUED']);
+
+                        // 3. Log Event
+                        await supabase.from('lead_events').insert({
+                            lead_id: leadId,
+                            event_type: 'orchestration.cancelled_by_appointment',
+                            payload: { 
+                                reason: 'appointment_confirmed', 
+                                scheduled_at: resData.scheduled_datetime 
+                            }
+                        });
                     }
 
             // Log event

@@ -15,11 +15,16 @@ CRM Interno minimalista para 1 Agente de Seguros, optimizado para gestionar lead
   - Multi-tenancy (múltiples usuarios).
   - Sign-up público.
   - Integración real de voz (ElevenLabs Activo y Configurado).
+  - Lógica de parada automática si se confirma agenda en llamada.
+  - Recuperación de transcripciones desde API si faltan en webhook.
   - Pagos/Facturación.
 
 ## Flujos Principales E2E
 1. **Meta Lead Ads**: Lead llena formulario -> Webhook -> Edge Function -> Crea Lead + Evento `lead.received.meta` -> Dashboard.
-2. **Llamada (Stub)**: Cron/Scheduler -> Edge Function `call_dispatcher` -> Verifica ventanas (9-10, 12-13, 19-20) -> Registra Evento `call.attempted`.
+2. **Llamada (IA)**: Cron/Scheduler -> Edge Function `make_outbound_call` -> ElevenLabs Agent -> Webhook `elevenlabs_webhook`.
+    - Si agenda cita: Cancela futuros intentos y jobs pendientes.
+    - Si no contesta: Reagendar según lógica de reintentos.
+    - Transcripción se guarda en `conversation_results`.
 3. **Calendly**: Usuario agenda -> Webhook -> Edge Function -> Crea Appointment + Mueve Stage -> Evento `appointment.scheduled`.
 4. **Gestión Manual**: Agente mueve tarjeta en Kanban -> Evento `pipeline.stage_changed`.
 
