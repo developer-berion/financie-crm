@@ -11,6 +11,8 @@ CRM Interno minimalista para 1 Agente de Seguros, optimizado para gestionar lead
   - Gestión de Pipeline (Kanban).
   - Timeline de eventos por Lead.
   - Lógica de reintentos de llamada (3 intentos/día en ventanas horarias).
+  - **Llamada Manual IA**: Botón para disparar llamada inmediata desde el perfil del lead.
+  - **Gestión de Jobs**: Posibilidad de cancelar llamadas programadas manualmente.
 - **Fuera de Alcance:**
   - Multi-tenancy (múltiples usuarios).
   - Sign-up público.

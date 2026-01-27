@@ -126,21 +126,23 @@ export default function LeadDetail() {
     };
 
     const handleCall = async () => {
-        if (!confirm(`¿Llamar a ${lead.full_name}?`)) return;
+        if (!confirm(`¿Lanzar llamada INMEDIATA a ${lead.full_name}?`)) return;
 
         setCalling(true);
         try {
+            // Direct call to Make Outbound Call Function
             const { data, error } = await supabase.functions.invoke('make_outbound_call', {
-                body: { lead_id: id }
+                body: { lead_id: lead.id }
             });
 
             if (error) throw error;
             if (data?.error) throw new Error(data.error);
 
-            alert('Llamada iniciada con éxito');
+            alert('Llamada iniciada con éxito. Debería sonar en breve.');
             fetchLeadData();
         } catch (err: any) {
-            alert('Error al iniciar llamada: ' + err.message);
+            console.error('Error invoking make_outbound_call:', err);
+            alert('Error al lanzar llamada: ' + (err.message || JSON.stringify(err)));
         } finally {
             setCalling(false);
         }
@@ -534,16 +536,44 @@ export default function LeadDetail() {
                                     ? "Reintento programado"
                                     : "Llamada inicial pendiente"}
                             </p>
-                            <div className="mt-3 inline-block bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">
-                                <p className="text-xs text-blue-700 font-medium">
-                                    {new Date(schedule.next_attempt_at).toLocaleString('es-ES', {
-                                        weekday: 'long',
-                                        hour: '2-digit',
-                                        minute: '2-digit',
-                                        day: 'numeric',
-                                        month: 'short'
-                                    })}
-                                </p>
+                            <div className="mt-3 flex items-center gap-2">
+                                <div className="inline-block bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">
+                                    <p className="text-xs text-blue-700 font-medium">
+                                        {new Date(schedule.next_attempt_at).toLocaleString('es-ES', {
+                                            weekday: 'long',
+                                            hour: '2-digit',
+                                            minute: '2-digit',
+                                            day: 'numeric',
+                                            month: 'short'
+                                        })}
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={async () => {
+                                        if (!confirm('¿Cancelar la próxima llamada programada?')) return;
+
+                                        // 1. Cancel active schedule
+                                        await supabase.from('call_schedules').update({ active: false }).eq('lead_id', id);
+
+                                        // 2. Cancel pending jobs
+                                        await supabase.from('jobs')
+                                            .update({ status: 'CANCELLED' })
+                                            .eq('lead_id', id)
+                                            .eq('status', 'PENDING');
+
+                                        // 3. Log event
+                                        await supabase.from('lead_events').insert({
+                                            lead_id: id,
+                                            event_type: 'call.cancelled_manual',
+                                            payload: { by: 'user_action' }
+                                        });
+
+                                        fetchLeadData();
+                                    }}
+                                    className="px-3 py-1.5 rounded-lg border border-red-100 text-red-500 hover:bg-red-50 text-xs font-medium transition-colors"
+                                >
+                                    Cancelar
+                                </button>
                             </div>
                         </div>
                     )}
