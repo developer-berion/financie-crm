@@ -46,10 +46,37 @@ serve(async (req) => {
       }
 
       // 3. Update job status
-      await supabase.from('jobs').update({
-          status: success ? 'COMPLETED' : 'FAILED',
-          error: error
-      }).eq('id', job.id);
+      // 3. Update job status with Retry Logic
+      if (success) {
+          await supabase.from('jobs').update({
+              status: 'COMPLETED',
+              error: null
+          }).eq('id', job.id);
+      } else {
+          const currentRetry = job.retry_count || 0;
+          const maxRetries = 3;
+          
+          if (currentRetry < maxRetries) {
+              const nextAttempt = new Date();
+              nextAttempt.setMinutes(nextAttempt.getMinutes() + 5);
+              
+              console.log(`Job ${job.id} failed. Retrying (${currentRetry + 1}/${maxRetries}) at ${nextAttempt.toISOString()}`);
+
+              await supabase.from('jobs').update({
+                  status: 'PENDING',
+                  retry_count: currentRetry + 1,
+                  scheduled_at: nextAttempt.toISOString(),
+                  error: `Attempt ${currentRetry + 1} failed: ${error}`
+              }).eq('id', job.id);
+          } else {
+              console.log(`Job ${job.id} failed permanently after ${maxRetries} retries.`);
+              await supabase.from('jobs').update({
+                  status: 'FAILED',
+                  retry_count: currentRetry,
+                  error: `Max retries exceeded. Last error: ${error}`
+              }).eq('id', job.id);
+          }
+      }
 
       results.push({ job_id: job.id, success, error });
     }

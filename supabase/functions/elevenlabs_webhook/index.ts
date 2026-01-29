@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { corsHeaders, getSupabaseClient, verifyElevenLabsSignature } from "../shared-utils.ts";
 
-const ELEVENLABS_WEBHOOK_SECRET = Deno.env.get('ELEVENLABS_WEBHOOK_SECRET') || 'wsec_b9ad901e60591d1d74c28ee0bdca643344a6dd48d2c81c2115183f7a565af65b';
+const ELEVENLABS_WEBHOOK_SECRET = Deno.env.get('ELEVENLABS_WEBHOOK_SECRET') || 'wsec_fa658b2ea7fabead2bbb959c962d4121125a06d1638d390864864b751efc1ff5';
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {

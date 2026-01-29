@@ -431,3 +431,8 @@ entrypoint = "./functions/orchestrate_lead/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/health_monitor/index.ts"
+
+[functions.make_outbound_call]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/make_outbound_call/index.ts"

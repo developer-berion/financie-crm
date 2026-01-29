@@ -8,7 +8,7 @@ export const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, GET, OPTIONS, PUT, DELETE',
 }
 
-const US_STATE_TIMEZONES: Record<string, string> = {
+export const US_STATE_TIMEZONES: Record<string, string> = {
   'AL': 'America/Chicago', 'AK': 'America/Anchorage', 'AZ': 'America/Phoenix', 'AR': 'America/Chicago',
   'CA': 'America/Los_Angeles', 'CO': 'America/Denver', 'CT': 'America/New_York', 'DE': 'America/New_York',
   'FL': 'America/New_York', 'GA': 'America/New_York', 'HI': 'America/Honolulu', 'ID': 'America/Denver',
@@ -24,7 +24,7 @@ const US_STATE_TIMEZONES: Record<string, string> = {
   'WI': 'America/Chicago', 'WY': 'America/Denver'
 };
 
-const FULL_STATE_TO_ABBR: Record<string, string> = {
+export const FULL_STATE_TO_ABBR: Record<string, string> = {
   'alabama': 'AL', 'alaska': 'AK', 'arizona': 'AZ', 'arkansas': 'AR', 'california': 'CA',
   'colorado': 'CO', 'connecticut': 'CT', 'delaware': 'DE', 'florida': 'FL', 'georgia': 'GA',
   'hawaii': 'HI', 'idaho': 'ID', 'illinois': 'IL', 'indiana': 'IN', 'iowa': 'IA',
@@ -39,7 +39,7 @@ const FULL_STATE_TO_ABBR: Record<string, string> = {
 
 export function getSafeCallTime(stateStr?: string): Date {
     const now = new Date();
-    const fallback = new Date(now.getTime() + 5 * 60 * 1000); // 5 min delay
+    const fallback = new Date(now.getTime() + 1 * 60 * 1000); // 1 min delay
     
     if (!stateStr) return fallback;
     
@@ -171,8 +171,24 @@ export async function verifyCalendlySignature(payload: string, signatureHeader: 
     return verified;
 }
 
-export async function verifyElevenLabsSignature(payload: string, signature: string, secret: string): Promise<boolean> {
-    if (!signature) return false;
+export async function verifyElevenLabsSignature(payload: string, signatureHeader: string, secret: string): Promise<boolean> {
+    if (!signatureHeader) return false;
+    
+    // Header format: t=timestamp,v0=hash
+    const parts = signatureHeader.split(',');
+    const tPart = parts.find(p => p.startsWith('t='));
+    const v0Part = parts.find(p => p.startsWith('v0='));
+    
+    if (!tPart || !v0Part) return false;
+    
+    const timestamp = tPart.split('=')[1];
+    const signature = v0Part.split('=')[1];
+    
+    if (!timestamp || !signature) return false;
+
+    // Computed input: timestamp.request_body
+    const dataToSign = `${timestamp}.${payload}`;
+
     const encoder = new TextEncoder();
     const key = await crypto.subtle.importKey(
         "raw",
@@ -186,9 +202,9 @@ export async function verifyElevenLabsSignature(payload: string, signature: stri
         "HMAC",
         key,
         new Uint8Array(signature.match(/.{1,2}/g)!.map((byte) => parseInt(byte, 16))),
-        encoder.encode(payload)
+        encoder.encode(dataToSign)
     );
-
+    
     return verified;
 }
 

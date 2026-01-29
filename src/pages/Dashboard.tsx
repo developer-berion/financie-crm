@@ -28,9 +28,9 @@ export default function Dashboard() {
 
             // Pending Calls
             const { count: callsPending } = await supabase
-                .from('call_schedules')
+                .from('jobs')
                 .select('*', { count: 'exact', head: true })
-                .eq('active', true);
+                .eq('status', 'PENDING');
 
             // Appointments Today
             const tomorrow = new Date(today);

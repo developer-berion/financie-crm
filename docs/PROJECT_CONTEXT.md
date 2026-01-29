@@ -4,6 +4,11 @@
 CRM Interno minimalista para 1 Agente de Seguros, optimizado para gestionar leads de Meta Ads y citas de Calendly con un principio de "Traza de Auditoría Total" (Event Sourcing light).
 
 ## Alcance (MVP)
+> **Documentación Técnica Detallada:**
+> - [Arquitectura](ARCHITECTURE_SPEC.md)
+> - [Diccionario de Datos](DB_DICTIONARY.md)
+> - [Catálogo de API](API_CATALOG.md)
+
 - **Incluido:**
   - Login (1 usuario pre-creado).
   - Ingesta de Leads desde Meta Webhooks.

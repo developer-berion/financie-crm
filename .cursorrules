@@ -1,0 +1,43 @@
+# Cursor Rules - Financie CRM
+
+You are an expert AI assistant working on the Financie CRM project. adhering to the following rules constraints is critical.
+
+## Tech Stack
+- **Frontend**: React (Vite), Tailwind CSS, Lucide React (Icons).
+- **Backend**: Supabase (Database, Auth, Storage).
+- **Serverless**: Supabase Edge Functions (Deno Runtime).
+- **Language**: TypeScript (Strict mode).
+
+## Core Principles
+1.  **Supabase Client First**: Always use `@supabase/supabase-js` client. Do not use direct Axios/Fetch for DB operations unless hitting an external API.
+2.  **Edge Functions (Deno)**:
+    - Imports must use URL syntax (e.g. `https://esm.sh/...`) or `deno.land`.
+    - Do NOT import Node.js built-ins (`fs`, `path`) directly; use Deno equivalents (`std/fs`).
+    - Always handle CORS with the `corsHeaders` helper.
+3.  **Authentication**:
+    - Frontend: Use `useAuth` hooks provided in context.
+    - Backend: Validate User via `auth.getUser()` or use Service Role ONLY when necessary (background jobs).
+4.  **Event Driven**:
+    - Do not just update `leads.status`. Insert a record into `lead_events` describing the action (`lead.status_changed`).
+    - Logs are immutable.
+
+## Coding Style
+- **Tailwind**: Use utility classes. Do not create custom CSS files unless widely reused @apply components.
+- **Naming**: 
+    - Tables: `snake_case` (e.g. `lead_events`).
+    - TS Variables: `camelCase`.
+    - Components: `PascalCase`.
+- **Error Handling**:
+    - Wrappers around Supabase calls to catch `error` object.
+    - Edge Functions must return 4xx/5xx responses with JSON `{ "error": "message" }`.
+
+## Project Structure
+- `/src`: Frontend Code.
+- `/supabase/functions`: Deno Edge Functions.
+- `/supabase/migrations`: SQL Schema history.
+- `/docs`: Project documentation source of truth.
+
+## Common Mistakes to Avoid
+- **Node in Deno**: Importing `npm:` packages without compatibility check.
+- **RLS Bypass**: Forgetting that the frontend client is restricted by RLS. If a query returns empty array unexpectedly, check RLS policies first.
+- **Hardcoded URLs**: Use `import.meta.env.VITE_...` or `Deno.env.get(...)`.

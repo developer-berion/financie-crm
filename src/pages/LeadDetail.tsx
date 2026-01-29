@@ -5,7 +5,7 @@ import Timeline from '../components/Timeline';
 import Modal from '../components/Modal';
 import ElevenLabsCallCard from '../components/ElevenLabsCallCard';
 import { Ban, Clock, MessageSquare, Phone, Mail, User, MapPin, Tag, Calendar, Hash, Info } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { cn, formatLeadTime } from '../lib/utils';
 
 export default function LeadDetail() {
     const { id } = useParams<{ id: string }>();
@@ -521,14 +521,22 @@ export default function LeadDetail() {
                 <div className="lg:col-span-4 space-y-6">
 
                     {/* Next Action / Schedule Status */}
-                    {schedule && new Date(schedule.next_attempt_at) > new Date() && (
-                        <div className="bg-white rounded-2xl shadow-sm border border-blue-100 p-6 relative overflow-hidden group">
+                    {schedule && schedule.active && (
+                        <div className={cn(
+                            "rounded-2xl shadow-sm border p-6 relative overflow-hidden group transition-all",
+                            new Date(schedule.next_attempt_at) > new Date()
+                                ? "bg-white border-blue-100"
+                                : "bg-orange-50 border-orange-100"
+                        )}>
                             <div className="absolute -top-6 -right-6 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-                                <Clock className="w-32 h-32 text-blue-600" />
+                                <Clock className={cn("w-32 h-32", new Date(schedule.next_attempt_at) > new Date() ? "text-blue-600" : "text-orange-600")} />
                             </div>
-                            <h3 className="text-xs font-bold text-blue-600 uppercase tracking-wider flex items-center gap-2 mb-4">
-                                <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-                                Próxima Llamada
+                            <h3 className={cn(
+                                "text-xs font-bold uppercase tracking-wider flex items-center gap-2 mb-4",
+                                new Date(schedule.next_attempt_at) > new Date() ? "text-blue-600" : "text-orange-600"
+                            )}>
+                                <div className={cn("w-2 h-2 rounded-full animate-pulse", new Date(schedule.next_attempt_at) > new Date() ? "bg-blue-500" : "bg-orange-500")} />
+                                {new Date(schedule.next_attempt_at) > new Date() ? "Próxima Llamada" : "Llamada Pendiente"}
                             </h3>
 
                             <p className="text-sm font-semibold text-brand-text mb-1">
@@ -537,15 +545,19 @@ export default function LeadDetail() {
                                     : "Llamada inicial pendiente"}
                             </p>
                             <div className="mt-3 flex items-center gap-2">
-                                <div className="inline-block bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">
-                                    <p className="text-xs text-blue-700 font-medium">
-                                        {new Date(schedule.next_attempt_at).toLocaleString('es-ES', {
-                                            weekday: 'long',
-                                            hour: '2-digit',
-                                            minute: '2-digit',
-                                            day: 'numeric',
-                                            month: 'short'
-                                        })}
+                                <div className={cn(
+                                    "inline-block px-3 py-1.5 rounded-lg border",
+                                    new Date(schedule.next_attempt_at) > new Date()
+                                        ? "bg-blue-50 border-blue-100 text-blue-700"
+                                        : "bg-orange-100 border-orange-200 text-orange-800"
+                                )}>
+                                    <p className="text-xs font-medium flex items-center gap-1.5">
+                                        {new Date(schedule.next_attempt_at) < new Date() && <Clock className="w-3 h-3" />}
+                                        {(() => {
+                                            const { day, time, friendlyZone } = formatLeadTime(schedule.next_attempt_at, lead?.state);
+                                            return `${day}, ${time} (${lead?.state || 'US'} - ${friendlyZone})`;
+                                        })()}
+                                        {new Date(schedule.next_attempt_at) < new Date() && <span className="text-[10px] uppercase font-bold opacity-75 ml-1">(En Cola)</span>}
                                     </p>
                                 </div>
                                 <button

@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 ### Added
+- Feature: Dashboard "Llamadas Pendientes" now reflects real-time job queue (jobs table).
+- Improvement: Call latency reduced from 5m to 1m for "Speed to Lead".
+- Reliability: Automatic retry mechanism (3 attempts) for failed calls.
 - Integración con Twilio para envío de SMS automáticos personalizados.
 - Integración con ElevenLabs para llamadas AI salientes con lógica de reintentos.
 - Lógica de seguimiento basada en bloques horarios (9 AM, 1 PM, 7 PM).
