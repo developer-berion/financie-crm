@@ -29,6 +29,7 @@ export default function Layout() {
         { name: 'Leads', to: '/leads', icon: Users },
         { name: 'Pipeline', to: '/pipeline', icon: KanbanSquare },
         { name: 'Tareas', to: '/tasks', icon: CheckSquare },
+        { name: 'Agentes', to: '/agentes', icon: Users },
         { name: 'Integraciones', to: '/integrations', icon: Settings },
     ];
 

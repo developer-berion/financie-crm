@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 ### Added
+- **Module: Agentes**: Nuevo módulo para gestión de postulantes (separado de Leads).
+- **Integration**: Sincronización automática de eventos de Calendly con la tabla `agentes`.
+- **Automation**: Cron job horario (`0 * * * *`) para mantener la agenda actualizada.
+- **Frontend**: 
+    - Nueva vista "Agentes" (Listado y Detalle).
+    - Botón "Manual Sync" con cooldown de 5 minutos para actualización bajo demanda.
 - Feature: Dashboard "Llamadas Pendientes" now reflects real-time job queue (jobs table).
 - Improvement: Call latency reduced from 5m to 1m for "Speed to Lead".
 - Reliability: Automatic retry mechanism (3 attempts) for failed calls.

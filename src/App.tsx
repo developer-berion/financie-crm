@@ -8,6 +8,8 @@ import Leads from './pages/Leads';
 import Pipeline from './pages/Pipeline';
 import LeadDetail from './pages/LeadDetail';
 import Tasks from './pages/Tasks';
+import Agentes from './pages/Agentes';
+import AgentDetail from './pages/AgentDetail';
 
 function App() {
   return (
@@ -23,6 +25,8 @@ function App() {
               <Route path="/leads/:id" element={<LeadDetail />} />
               <Route path="/pipeline" element={<Pipeline />} />
               <Route path="/tasks" element={<Tasks />} />
+              <Route path="/agentes" element={<Agentes />} />
+              <Route path="/agentes/:id" element={<AgentDetail />} />
               <Route path="/integrations" element={<div className="p-4">Integrations (Configuración de Webhooks) - Ver Documentación</div>} />
             </Route>
           </Route>
