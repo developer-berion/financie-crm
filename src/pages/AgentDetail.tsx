@@ -7,6 +7,12 @@ import SyncCalendlyButton from '../components/SyncCalendlyButton';
 
 export default function AgentDetail() {
     const { id } = useParams<{ id: string }>();
+
+    const formatSeconds = (seconds: number) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins}m ${secs}s`;
+    };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [agent, setAgent] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -64,6 +70,46 @@ export default function AgentDetail() {
                     </div>
                 </div>
             </div>
+
+            {/* Video Details Section */}
+            {(agent.video_duration_seconds || agent.video_max_watched_seconds || agent.video_started_at) ? (
+                <div className="bg-white rounded-2xl shadow-sm border border-brand-border p-6">
+                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2 mb-4">
+                        <div className="w-2 h-2 rounded-full bg-blue-500"></div> Video Training
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                            <p className="text-xs text-gray-500 uppercase font-medium mb-1">Duración Total</p>
+                            <p className="text-xl font-bold text-brand-primary">
+                                {formatSeconds(agent.video_duration_seconds || 0)}
+                            </p>
+                        </div>
+                        <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                            <p className="text-xs text-gray-500 uppercase font-medium mb-1">Tiempo Visto</p>
+                            <p className="text-xl font-bold text-brand-primary">
+                                {formatSeconds(agent.video_max_watched_seconds || 0)}
+                            </p>
+                            <p className="text-xs text-gray-400 mt-1">
+                                {agent.video_started_at ? `Iniciado: ${new Date(agent.video_started_at).toLocaleDateString()}` : 'No iniciado'}
+                            </p>
+                        </div>
+                        <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                            <p className="text-xs text-gray-500 uppercase font-medium mb-1">Progreso</p>
+                            <div className="flex items-center gap-3">
+                                <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                    <div
+                                        className="h-full bg-blue-500 rounded-full transition-all duration-500"
+                                        style={{ width: `${Math.min(100, Math.round(((agent.video_max_watched_seconds || 0) / (agent.video_duration_seconds || 1)) * 100))}%` }}
+                                    ></div>
+                                </div>
+                                <span className="text-xl font-bold text-brand-primary">
+                                    {Math.round(((agent.video_max_watched_seconds || 0) / (agent.video_duration_seconds || 1)) * 100)}%
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            ) : null}
 
             <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
                 {/* Calendly Events List */}

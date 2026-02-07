@@ -2,6 +2,13 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { corsHeaders, getSupabaseClient, US_STATE_TIMEZONES, FULL_STATE_TO_ABBR } from "../shared-utils.ts";
 
 serve(async (req) => {
+    // DISABLED TEMPORARILY: Call dispatcher
+    return new Response(JSON.stringify({ 
+        message: 'Dispatcher is currently disabled by administrator.' 
+    }), { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+    });
+
     // Defines standard retry windows (Lead Local Time)
     const validHours = [9, 12, 19]; 
     const now = new Date();

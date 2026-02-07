@@ -1,9 +1,15 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { corsHeaders } from '../shared-utils.ts'
 
 // Configuration
 const CALENDLY_API_BASE = 'https://api.calendly.com'
 
-export async function syncCalendlyEvents(req: Request) {
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
+
   try {
     // 1. Initialize Supabase Client
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
@@ -153,18 +159,18 @@ export async function syncCalendlyEvents(req: Request) {
         success: true, 
         message: `Sync complete. Found ${events.length} events, matched ${matchCount} agents, updated ${updatedCount} records.` 
       }),
-      { headers: { "Content-Type": "application/json" } },
+      { 
+        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      },
     )
   } catch (error) {
     console.error('Error in syncCalendlyEvents:', error)
     return new Response(
       JSON.stringify({ success: false, error: error.message }),
-      { headers: { "Content-Type": "application/json" }, status: 500 },
+      { 
+        headers: { ...corsHeaders, "Content-Type": "application/json" }, 
+        status: 500 
+      },
     )
   }
-}
-
-// Serve the function
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-
-serve(syncCalendlyEvents)
+})

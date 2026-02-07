@@ -1,9 +1,18 @@
 # CHANGELOG
 
 ## [Unreleased]
+### Changed
+- **Automation**: Suspensión temporal de llamadas automáticas (`INITIAL_CALL`) y despacho de agenda.
+- **Integration**: Desactivación de la sincronización automática de Calendly.
+- **Integration**: Actualización y verificación del Token de API de Calendly.
+- **Frontend**: Ocultación del botón de sincronización manual en la vista de Agentes.
+
 ### Added
+- **Database**: Nuevo campo `bot_verification` en tabla `leads` para almacenar retos anti-bot.
+- **Frontend**: Campo "Verificación Anti-Bot" en `LeadDetail` (Layout 4 columnas).
 - **Module: Agentes**: Nuevo módulo para gestión de postulantes (separado de Leads).
 - **Integration**: Sincronización automática de eventos de Calendly con la tabla `agentes`.
+- **Security**: Implementación de Lista Negra (Blacklist) para SMS entrantes de Twilio.
 - **Automation**: Cron job horario (`0 * * * *`) para mantener la agenda actualizada.
 - **Frontend**: 
     - Nueva vista "Agentes" (Listado y Detalle).

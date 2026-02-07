@@ -3,6 +3,13 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { corsHeaders, getSupabaseClient, triggerCall } from "../shared-utils.ts";
 
 serve(async (req) => {
+  // DISABLED TEMPORARILY: Job processor (Automatic calls)
+  return new Response(JSON.stringify({ 
+      message: 'Job Processor is currently disabled by administrator.' 
+  }), { 
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+  });
+
   // Handle CORS
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })

@@ -26,6 +26,7 @@ Almacena la información de contacto de los prospectos (leads). Es la tabla cent
 | `stable_income` | `text` | YES | Campo enriquecido por AI (Ingresos estables). |
 | `main_objective` | `text` | YES | Campo enriquecido por AI (Objetivo). |
 | `health_condition` | `text` | YES | Campo enriquecido por AI (Salud). |
+| `bot_verification` | `text` | YES | Respuesta al reto anti-bot (ej: "2+3?"). |
 
 ### `lead_events`
 Log de auditoría "Append-Only". Cada acción relevante sobre un lead se guarda aquí.

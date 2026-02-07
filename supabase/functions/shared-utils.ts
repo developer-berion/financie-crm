@@ -521,7 +521,8 @@ export async function orchestrateLead(supabase: any, lead: any) {
 
     // 5. Schedule Call if SMS success (Always true now since we mock success)
     if (smsResult.success) {
-        // Use timezone-aware scheduling
+        // DISABLED TEMPORARILY: Automatic call scheduling
+        /*
         const nextAttempt = getSafeCallTime(lead.state);
         console.log(`Scheduling call for lead ${leadId} in state ${lead.state} for ${nextAttempt.toISOString()}`);
         
@@ -546,9 +547,16 @@ export async function orchestrateLead(supabase: any, lead: any) {
            payload: { reason: 'orchestration_triggered', scheduled_to: nextAttempt.toISOString() }
         });
 
-        // REMOVED: Immediate trigger logic. All calls must go through the scheduler (pg_cron)
-        // to ensure the 5-minute delay is respected and to avoid race conditions.
         console.log(`[Orchestrate] Call scheduled for ${nextAttempt.toISOString()}. Job PENDING.`);
+        */
+        
+        // Log that we skipped scheduling per user request
+        await supabase.from('lead_events').insert({
+            lead_id: leadId,
+            event_type: 'call.scheduling_skipped',
+            payload: { reason: 'automatic_call_disabled_by_user' }
+        });
+        console.log(`[Orchestrate] Automatic call scheduling is DISABLED.`);
     } else {
         await supabase.from('lead_events').insert({
             lead_id: leadId,

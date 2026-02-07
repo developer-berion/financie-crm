@@ -30,7 +30,7 @@ export default function LeadDetail() {
         if (!id) return;
 
         // Fetch Lead
-        const { data: leadData } = await supabase.from('leads').select('*, pipeline_stages(name)').eq('id', id).single();
+        const { data: leadData } = await supabase.from('leads').select('*, bot_verification, pipeline_stages(name)').eq('id', id).single();
         if (leadData) setLead(leadData);
 
         // Fetch Lead Events (Timeline)
@@ -381,7 +381,7 @@ export default function LeadDetail() {
                         <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-6 flex items-center gap-2">
                             <Tag className="w-4 h-4" /> Calificación
                         </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                             <div className="space-y-2">
                                 <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">Objetivo Principal</label>
                                 <div className="relative">
@@ -431,6 +431,24 @@ export default function LeadDetail() {
                                     </select>
                                     <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none text-gray-400">
                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">Verificación Anti-Bot</label>
+                                <div className="relative">
+                                    <div className={cn(
+                                        "w-full border rounded-xl px-4 py-2.5 text-sm font-medium transition-all flex items-center gap-2",
+                                        lead.bot_verification
+                                            ? "bg-white border-brand-border text-brand-text"
+                                            : "bg-gray-50 border-gray-100 text-gray-400 italic"
+                                    )}>
+                                        {lead.bot_verification ? (
+                                            <>
+                                                <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                                                {lead.bot_verification}
+                                            </>
+                                        ) : "No aplica / No data"}
                                     </div>
                                 </div>
                             </div>
@@ -650,6 +668,6 @@ export default function LeadDetail() {
                     </div>
                 </div>
             </Modal>
-        </div>
+        </div >
     );
 }

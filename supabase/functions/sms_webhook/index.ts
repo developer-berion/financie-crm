@@ -46,6 +46,40 @@ serve(async (req) => {
       ErrorCode
     } = body;
 
+    // --- BLACKLIST CHECK ---
+    if (From) {
+        const { data: blacklistSetting } = await supabase
+            .from('app_settings')
+            .select('value')
+            .eq('key', 'SMS_BLACKLIST')
+            .maybeSingle();
+
+        if (blacklistSetting?.value) {
+            const blacklistedNumbers = blacklistSetting.value.split(',').map((n: string) => n.trim());
+            const cleanFrom = From.replace(/\D/g, ''); // Clean to digits only
+            
+            const isBlacklisted = blacklistedNumbers.some((n: string) => {
+                const cleanN = n.replace(/\D/g, '');
+                return cleanN === cleanFrom && cleanN.length > 0;
+            });
+
+            if (isBlacklisted) {
+                console.log(`[Blacklist] Blocking SMS from ${From}`);
+                // Return valid empty TwiML to Twilio so it doesn't retry
+                return new Response(
+                    '<?xml version="1.0" encoding="UTF-8"?><Response></Response>',
+                    { 
+                        headers: { 
+                            ...corsHeaders, 
+                            'Content-Type': 'application/xml text/xml' 
+                        } 
+                    }
+                );
+            }
+        }
+    }
+    // -----------------------
+
     const status = SmsStatus || MessageStatus || 'received';
 
     // 1. Log the integration event
