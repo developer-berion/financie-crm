@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## [0.1.0] - 2026-02-14
+### Added
+- **Feature**: Lead Notes with Edit History.
+    - Implementación de tablas `notes` y `note_versions`.
+    - Nueva UI en `LeadDetail` para gestión de notas con soporte de versiones.
+    - Modal de edición con historial de cambios.
+
 ## [Unreleased]
 ### Changed
 - **Automation**: Suspensión temporal de llamadas automáticas (`INITIAL_CALL`) y despacho de agenda.

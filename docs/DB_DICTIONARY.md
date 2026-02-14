@@ -39,6 +39,29 @@ Log de auditoría "Append-Only". Cada acción relevante sobre un lead se guarda 
 | `payload` | `jsonb` | YES | Datos del evento (transcripciones, response bodies). |
 | `created_at` | `timestamptz` | NO | Timestamp del evento. |
 
+### `notes`
+Notas estructuradas asociadas a un lead.
+
+| Columna | Tipo | Nulable | Descripción |
+| :--- | :--- | :--- | :--- |
+| `id` | `uuid` | NO | PK. |
+| `lead_id` | `uuid` | NO | FK -> `leads.id`. |
+| `title` | `text` | NO | Título de la nota. |
+| `content` | `text` | NO | Contenido de la nota. |
+| `created_at` | `timestamptz` | NO | Fecha de creación. |
+| `updated_at` | `timestamptz` | NO | Fecha de última edición. |
+
+### `note_versions`
+Historial de cambios de las notas (Snapshot).
+
+| Columna | Tipo | Nulable | Descripción |
+| :--- | :--- | :--- | :--- |
+| `id` | `uuid` | NO | PK. |
+| `note_id` | `uuid` | NO | FK -> `notes.id`. |
+| `title` | `text` | NO | Título en el momento del snapshot. |
+| `content` | `text` | NO | Contenido en el momento del snapshot. |
+| `created_at` | `timestamptz` | NO | Fecha del snapshot (edición). |
+
 ### `call_schedules`
 Controla la lógica de reintentos automáticos para llamadas.
 

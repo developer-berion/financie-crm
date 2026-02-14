@@ -3,8 +3,9 @@ import { useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import Timeline from '../components/Timeline';
 import Modal from '../components/Modal';
+import NoteModal from '../components/NoteModal';
 import ElevenLabsCallCard from '../components/ElevenLabsCallCard';
-import { Ban, Clock, MessageSquare, Phone, Mail, User, MapPin, Tag, Calendar, Hash, Info } from 'lucide-react';
+import { Ban, Clock, MessageSquare, Phone, Mail, User, MapPin, Tag, Calendar, Hash, Info, Plus, FileText, Edit3 } from 'lucide-react';
 import { cn, formatLeadTime } from '../lib/utils';
 
 export default function LeadDetail() {
@@ -14,12 +15,14 @@ export default function LeadDetail() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [events, setEvents] = useState<any[]>([]);
     const [callEvents, setCallEvents] = useState<any[]>([]);
+    const [notes, setNotes] = useState<any[]>([]);
     const [schedule, setSchedule] = useState<any>(null);
     const [conversation, setConversation] = useState<any>(null);
-    const [note, setNote] = useState('');
     const [loading, setLoading] = useState(true);
     const [calling, setCalling] = useState(false);
     const [isTranscriptModalOpen, setIsTranscriptModalOpen] = useState(false);
+    const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
+    const [selectedNote, setSelectedNote] = useState<any>(null);
 
     useEffect(() => {
         if (id) fetchLeadData();
@@ -41,6 +44,15 @@ export default function LeadDetail() {
             .order('created_at', { ascending: false });
 
         if (eventData) setEvents(eventData);
+
+        // Fetch Notes
+        const { data: notesData } = await supabase
+            .from('notes')
+            .select('*')
+            .eq('lead_id', id)
+            .order('created_at', { ascending: false });
+
+        if (notesData) setNotes(notesData);
 
 
 
@@ -77,16 +89,20 @@ export default function LeadDetail() {
         setLoading(false);
     }
 
-    const handleAddNote = async () => {
-        if (!note.trim()) return;
 
-        await supabase.from('lead_events').insert({
-            lead_id: id,
-            event_type: 'note.added',
-            payload: { text: note }
-        });
-        setNote('');
-        fetchLeadData(); // Refresh
+
+    const handleNewNote = () => {
+        setSelectedNote(null);
+        setIsNoteModalOpen(true);
+    };
+
+    const handleEditNote = (note: any) => {
+        setSelectedNote(note);
+        setIsNoteModalOpen(true);
+    };
+
+    const handleNoteSaved = () => {
+        fetchLeadData();
     };
 
     const handleDNC = async () => {
@@ -472,25 +488,58 @@ export default function LeadDetail() {
                     <div className="bg-white rounded-2xl shadow-sm border border-brand-border overflow-hidden">
                         <div className="px-6 py-4 border-b border-brand-border flex justify-between items-center bg-gray-50/50">
                             <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
-                                <Tag className="w-4 h-4" /> Bitácora
+                                <FileText className="w-4 h-4" /> Notas ({notes.length})
                             </h3>
+                            <button
+                                onClick={handleNewNote}
+                                className="px-3 py-1.5 bg-white border border-brand-border text-brand-primary text-xs font-bold rounded-lg hover:border-brand-primary transition-all shadow-sm flex items-center gap-1.5"
+                            >
+                                <Plus className="w-3 h-3" />
+                                Nueva Nota
+                            </button>
                         </div>
                         <div className="p-6">
-                            <div className="flex gap-3">
-                                <input
-                                    className="flex-1 bg-white border border-brand-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-accent/20 focus:border-brand-accent transition-all"
-                                    placeholder="Escribe una nota..."
-                                    value={note}
-                                    onChange={e => setNote(e.target.value)}
-                                    onKeyDown={e => e.key === 'Enter' && handleAddNote()}
-                                />
-                                <button
-                                    onClick={handleAddNote}
-                                    className="px-6 py-2.5 bg-brand-primary text-white text-sm font-semibold rounded-xl hover:bg-brand-secondary transition-colors shadow-sm"
-                                >
-                                    Publicar
-                                </button>
-                            </div>
+                            {notes.length > 0 ? (
+                                <div className="grid gap-4">
+                                    {notes.map(note => (
+                                        <div
+                                            key={note.id}
+                                            onClick={() => handleEditNote(note)}
+                                            className="group relative bg-white border border-brand-border hover:border-brand-accent/50 rounded-xl p-4 transition-all hover:shadow-md cursor-pointer"
+                                        >
+                                            <div className="flex justify-between items-start mb-2">
+                                                <h4 className="font-bold text-sm text-brand-primary group-hover:text-brand-accent transition-colors">
+                                                    {note.title}
+                                                </h4>
+                                                <span className="text-[10px] uppercase font-bold text-gray-400 bg-gray-50 px-2 py-1 rounded-md">
+                                                    {new Date(note.updated_at).toLocaleDateString()}
+                                                </span>
+                                            </div>
+                                            <p className="text-sm text-gray-600 line-clamp-2 leading-relaxed">
+                                                {note.content}
+                                            </p>
+                                            <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <div className="p-1.5 bg-brand-bg rounded-lg text-brand-accent">
+                                                    <Edit3 className="w-3 h-3" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="text-center py-8 border-2 border-dashed border-gray-100 rounded-xl">
+                                    <div className="w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-3 text-gray-300">
+                                        <FileText className="w-5 h-5" />
+                                    </div>
+                                    <p className="text-xs text-gray-400 font-medium">No hay notas registradas</p>
+                                    <button
+                                        onClick={handleNewNote}
+                                        className="mt-2 text-xs font-bold text-brand-secondary hover:underline"
+                                    >
+                                        Crear la primera nota
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -668,6 +717,15 @@ export default function LeadDetail() {
                     </div>
                 </div>
             </Modal>
+
+            {/* Note Modal */}
+            <NoteModal
+                isOpen={isNoteModalOpen}
+                onClose={() => setIsNoteModalOpen(false)}
+                note={selectedNote}
+                leadId={id || ''}
+                onNoteSaved={handleNoteSaved}
+            />
         </div >
     );
 }
