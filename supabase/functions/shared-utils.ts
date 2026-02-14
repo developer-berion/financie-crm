@@ -353,7 +353,7 @@ export async function sendEmail(lead: any) {
             <div class="field"><span class="label">ID:</span> ${lead.id}</div>
             
             <p style="margin-top: 20px;">
-              <a href="https://financie-crm.vercel.app/leads/${lead.id}" style="background-color: #28a745; color: white; padding: 10px 15px; text-decoration: none; border-radius: 5px;">View Lead in CRM</a>
+              <a href="${Deno.env.get('APP_URL') || 'https://crm.financiegroup.com'}/leads/${lead.id}" style="background-color: #28a745; color: white; padding: 10px 15px; text-decoration: none; border-radius: 5px;">View Lead in CRM</a>
             </p>
           </div>
           <div class="footer">

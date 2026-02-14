@@ -471,55 +471,48 @@ export default function LeadDetail() {
                         </div>
                     </div>
 
-                    {/* AI Insights Card (Replaced with new Component) */}
-                    {conversation ? (
-                        <ElevenLabsCallCard conversation={conversation} leadState={lead.state} />
-                    ) : (
-                        <div className="bg-brand-bg rounded-2xl border border-brand-border p-10 text-center">
-                            <div className="w-14 h-14 bg-white rounded-xl shadow-sm border border-brand-border flex items-center justify-center mx-auto mb-4 text-gray-300">
-                                <MessageSquare className="w-6 h-6" />
+                    {/* SECCIÓN DE NOTAS (Reordenado: Arriba de AI) */}
+                    <div className="bg-white rounded-2xl shadow-sm border border-blue-100 overflow-hidden mb-6">
+                        <div className="px-6 py-4 border-b border-blue-100 bg-blue-50/30 flex justify-between items-center">
+                            <div className="flex items-center gap-2">
+                                <FileText className="w-5 h-5 text-blue-600" />
+                                <h3 className="text-lg font-bold text-gray-800 tracking-tight">Notas</h3>
+                                <span className="bg-blue-100 text-blue-700 text-xs px-2.5 py-0.5 rounded-full font-bold">
+                                    {notes.filter(n => !n.archived).length}
+                                </span>
                             </div>
-                            <h4 className="text-brand-text font-semibold text-sm">Sin conversaciones AI</h4>
-                            <p className="text-xs text-gray-400 mt-1">Inicia una llamada para generar datos.</p>
-                        </div>
-                    )}
-
-                    {/* Notes Section */}
-                    <div className="bg-white rounded-2xl shadow-sm border border-brand-border overflow-hidden">
-                        <div className="px-6 py-4 border-b border-brand-border flex justify-between items-center bg-gray-50/50">
-                            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
-                                <FileText className="w-4 h-4" /> Notas ({notes.length})
-                            </h3>
                             <button
                                 onClick={handleNewNote}
-                                className="px-3 py-1.5 bg-white border border-brand-border text-brand-primary text-xs font-bold rounded-lg hover:border-brand-primary transition-all shadow-sm flex items-center gap-1.5"
+                                className="px-3.5 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition-all shadow-sm flex items-center gap-1.5"
                             >
-                                <Plus className="w-3 h-3" />
+                                <Plus className="w-3.5 h-3.5" />
                                 Nueva Nota
                             </button>
                         </div>
+
                         <div className="p-6">
-                            {notes.length > 0 ? (
+                            {/* Active Notes */}
+                            {notes.filter(n => !n.archived).length > 0 ? (
                                 <div className="grid gap-4">
-                                    {notes.map(note => (
+                                    {notes.filter(n => !n.archived).map(note => (
                                         <div
                                             key={note.id}
                                             onClick={() => handleEditNote(note)}
-                                            className="group relative bg-white border border-brand-border hover:border-brand-accent/50 rounded-xl p-4 transition-all hover:shadow-md cursor-pointer"
+                                            className="group relative bg-white border border-blue-100 hover:border-blue-300 rounded-xl p-4 transition-all hover:shadow-md cursor-pointer"
                                         >
                                             <div className="flex justify-between items-start mb-2">
-                                                <h4 className="font-bold text-sm text-brand-primary group-hover:text-brand-accent transition-colors">
+                                                <h4 className="font-bold text-sm text-gray-900 group-hover:text-blue-700 transition-colors">
                                                     {note.title}
                                                 </h4>
                                                 <span className="text-[10px] uppercase font-bold text-gray-400 bg-gray-50 px-2 py-1 rounded-md">
                                                     {new Date(note.updated_at).toLocaleDateString()}
                                                 </span>
                                             </div>
-                                            <p className="text-sm text-gray-600 line-clamp-2 leading-relaxed">
+                                            <p className="text-sm text-gray-600 line-clamp-3 leading-relaxed">
                                                 {note.content}
                                             </p>
                                             <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <div className="p-1.5 bg-brand-bg rounded-lg text-brand-accent">
+                                                <div className="p-1.5 bg-blue-50 rounded-lg text-blue-600">
                                                     <Edit3 className="w-3 h-3" />
                                                 </div>
                                             </div>
@@ -527,21 +520,61 @@ export default function LeadDetail() {
                                     ))}
                                 </div>
                             ) : (
-                                <div className="text-center py-8 border-2 border-dashed border-gray-100 rounded-xl">
-                                    <div className="w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-3 text-gray-300">
+                                <div className="text-center py-8 border-2 border-dashed border-blue-50 rounded-xl bg-blue-50/20">
+                                    <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-3 text-blue-300">
                                         <FileText className="w-5 h-5" />
                                     </div>
-                                    <p className="text-xs text-gray-400 font-medium">No hay notas registradas</p>
+                                    <p className="text-xs text-blue-400 font-medium">No hay notas activas</p>
                                     <button
                                         onClick={handleNewNote}
-                                        className="mt-2 text-xs font-bold text-brand-secondary hover:underline"
+                                        className="mt-2 text-xs font-bold text-blue-600 hover:underline"
                                     >
-                                        Crear la primera nota
+                                        Crear primera nota
                                     </button>
+                                </div>
+                            )}
+
+                            {/* Archived Notes Section */}
+                            {notes.some(n => n.archived) && (
+                                <div className="mt-8 pt-6 border-t border-gray-100">
+                                    <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-gray-300" />
+                                        Notas Archivadas ({notes.filter(n => n.archived).length})
+                                    </h4>
+                                    <div className="grid grid-cols-1 gap-3 opacity-60 hover:opacity-100 transition-opacity duration-300">
+                                        {notes.filter(n => n.archived).map((note) => (
+                                            <div
+                                                key={note.id}
+                                                onClick={() => handleEditNote(note)}
+                                                className="bg-gray-50 border border-gray-200 rounded-lg p-3 hover:bg-white hover:border-gray-300 transition-all cursor-pointer flex justify-between items-center group"
+                                            >
+                                                <div>
+                                                    <h3 className="text-xs font-semibold text-gray-600 group-hover:text-gray-800">{note.title}</h3>
+                                                    <p className="text-[10px] text-gray-500 line-clamp-1 mt-0.5">{note.content}</p>
+                                                </div>
+                                                <span className="text-[10px] text-gray-400 group-hover:text-gray-500">
+                                                    {formatLeadTime(note.updated_at).day}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
                             )}
                         </div>
                     </div>
+
+                    {/* AI Insights Card */}
+                    {conversation ? (
+                        <ElevenLabsCallCard conversation={conversation} leadState={lead.state} />
+                    ) : (
+                        <div className="bg-brand-bg rounded-2xl border border-brand-border p-10 text-center mb-6">
+                            <div className="w-14 h-14 bg-white rounded-xl shadow-sm border border-brand-border flex items-center justify-center mx-auto mb-4 text-gray-300">
+                                <MessageSquare className="w-6 h-6" />
+                            </div>
+                            <h4 className="text-brand-text font-semibold text-sm">Sin conversaciones AI</h4>
+                            <p className="text-xs text-gray-400 mt-1">Inicia una llamada para generar datos.</p>
+                        </div>
+                    )}
 
                     {/* Details Tabs (Calls) */}
                     <div className="bg-white rounded-2xl shadow-sm border border-brand-border overflow-hidden">

@@ -48,3 +48,16 @@
     - Verificación automática de fallo saltó por constraint FK (esperado), validado vía código.
 - **Próximo:**
     - Monitorear tasa de contacto con nuevo delay.
+## 2026-02-14
+- **Hecho:**
+    - Implementación completa de "Notas de Lead" con historial de versiones y archivado.
+    - Reordenamiento de UI en `LeadDetail` (Notas arriba, AI Call Card abajo).
+    - Estilización de sección de notas (diferenciación visual).
+    - Corrección de enlace en correos de notificación (`View Lead in CRM` ahora usa `APP_URL`).
+    - Despliegue de `orchestrate_lead` Edge Function con la corrección.
+    - Reemplazo de `health_monitor` (falsos positivos) por `system_integrity`.
+    - Nueva función de monitoreo verifica: Base de Datos (Lectura), ElevenLabs (Créditos Reales), Brevo (Plan), Twilio (Estado), y Webhooks (Latencia).
+    - Se eliminó la creación de leads de prueba para el monitoreo.
+- **Decisiones tomadas:** Se prioriza la entrada manual de notas sobre la información generada por AI para mejorar el flujo de trabajo de los agentes.
+
+- **Próximo:** Monitorear uso de notas y funcionamiento de enlaces en correos.

@@ -6,6 +6,7 @@
     - Implementación de tablas `notes` y `note_versions`.
     - Nueva UI en `LeadDetail` para gestión de notas con soporte de versiones.
     - Modal de edición con historial de cambios.
+    - **Archiving**: Sistema de archivado y restauración de notas con vista dedicada.
 
 ## [Unreleased]
 ### Changed

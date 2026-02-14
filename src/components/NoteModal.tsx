@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import Modal from './Modal';
-import { Save, History } from 'lucide-react';
+import { Save, History, Archive, ArchiveRestore } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -12,6 +12,7 @@ interface Note {
     content: string;
     created_at: string;
     updated_at: string;
+    archived: boolean;
 }
 
 interface NoteVersion {
@@ -124,6 +125,49 @@ export default function NoteModal({ isOpen, onClose, note, leadId, onNoteSaved }
         }
     };
 
+    const handleArchive = async () => {
+        if (!note) return;
+        if (!confirm('¿Estás seguro de que deseas archivar esta nota?')) return;
+
+        setLoading(true);
+        try {
+            const { error } = await supabase
+                .from('notes')
+                .update({ archived: true })
+                .eq('id', note.id);
+
+            if (error) throw error;
+            onNoteSaved();
+            onClose();
+        } catch (error) {
+            console.error('Error archiving note:', error);
+            alert('Error al archivar la nota');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleUnarchive = async () => {
+        if (!note) return;
+
+        setLoading(true);
+        try {
+            const { error } = await supabase
+                .from('notes')
+                .update({ archived: false })
+                .eq('id', note.id);
+
+            if (error) throw error;
+            onNoteSaved();
+            onClose();
+        } catch (error) {
+            console.error('Error restoring note:', error);
+            alert('Error al restaurar la nota');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
         <Modal
             isOpen={isOpen}
@@ -154,20 +198,54 @@ export default function NoteModal({ isOpen, onClose, note, leadId, onNoteSaved }
                     </div>
                 </div>
 
-                <div className="flex justify-end pt-2">
-                    <button
-                        onClick={handleSave}
-                        disabled={loading || !title.trim() || !content.trim()}
-                        className={cn(
-                            "px-6 py-2.5 rounded-xl text-white text-sm font-bold shadow-md transition-all flex items-center gap-2",
-                            loading || !title.trim() || !content.trim()
-                                ? "bg-gray-300 cursor-not-allowed"
-                                : "bg-brand-primary hover:bg-brand-secondary hover:shadow-lg active:scale-95"
+                <div className="flex justify-between items-center pt-2">
+                    <div>
+                        {note && (
+                            note.archived ? (
+                                <button
+                                    type="button"
+                                    onClick={handleUnarchive}
+                                    disabled={loading}
+                                    className="flex items-center gap-2 px-4 py-2 text-green-600 hover:bg-green-50 rounded-xl transition-colors text-sm font-medium"
+                                >
+                                    <ArchiveRestore className="w-4 h-4" />
+                                    Restaurar
+                                </button>
+                            ) : (
+                                <button
+                                    type="button"
+                                    onClick={handleArchive}
+                                    disabled={loading}
+                                    className="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-xl transition-colors text-sm font-medium"
+                                >
+                                    <Archive className="w-4 h-4" />
+                                    Archivar
+                                </button>
+                            )
                         )}
-                    >
-                        <Save className="w-4 h-4" />
-                        {loading ? 'Guardando...' : 'Guardar Nota'}
-                    </button>
+                    </div>
+                    <div className="flex gap-2">
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="px-4 py-2.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-colors text-sm font-medium"
+                        >
+                            Cancelar
+                        </button>
+                        <button
+                            onClick={handleSave}
+                            disabled={loading || !title.trim() || !content.trim()}
+                            className={cn(
+                                "px-6 py-2.5 rounded-xl text-white text-sm font-bold shadow-md transition-all flex items-center gap-2",
+                                loading || !title.trim() || !content.trim()
+                                    ? "bg-gray-300 cursor-not-allowed"
+                                    : "bg-brand-primary hover:bg-brand-secondary hover:shadow-lg active:scale-95"
+                            )}
+                        >
+                            <Save className="w-4 h-4" />
+                            {loading ? 'Guardando...' : 'Guardar Nota'}
+                        </button>
+                    </div>
                 </div>
 
                 {/* History Section */}
