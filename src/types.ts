@@ -16,6 +16,10 @@ export interface Lead {
   meta_created_at?: string;
   message_status?: 'recibido' | 'no_enviado' | 'no_recibido';
   call_status?: 'exitosa' | 'rechazada' | 'sin_respuesta';
+  estimated_value?: number;
+  currency?: string;
+  contact_attempts?: number;
+  last_contact_attempt?: string;
 }
 
 export interface PipelineStage {

@@ -18,86 +18,47 @@ import {
     SortableContext,
     sortableKeyboardCoordinates,
     verticalListSortingStrategy,
-    useSortable
 } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-import { Link } from 'react-router-dom';
-
-// Types
-interface Stage {
-    id: string;
-    name: string;
-    sort_order: number;
-}
-interface LeadCard {
-    id: string;
-    full_name: string;
-    phone: string;
-    stage_id: string;
-}
-
-// Sortable Item Component (Card)
-function KanbanCard({ lead }: { lead: LeadCard }) {
-    const {
-        attributes,
-        listeners,
-        setNodeRef,
-        transform,
-        transition,
-    } = useSortable({ id: lead.id });
-
-    const style = {
-        transform: CSS.Transform.toString(transform),
-        transition,
-    };
-
-    return (
-        <div
-            ref={setNodeRef}
-            style={style}
-            {...attributes}
-            {...listeners}
-            className="bg-white p-3 rounded shadow-sm border border-gray-200 cursor-grab hover:shadow-md mb-2"
-        >
-            <div className="font-medium text-gray-900">{lead.full_name}</div>
-            <div className="text-xs text-gray-500 mt-1">{lead.phone}</div>
-            <div className="mt-2 text-right">
-                <Link to={`/leads/${lead.id}`} className="text-xs text-blue-600 hover:text-blue-800 pointer-events-auto z-10 relative">
-                    Ver detalles
-                </Link>
-            </div>
-        </div>
-    );
-}
+import type { Lead, PipelineStage } from '../types';
+import DealCard from '../components/pipeline/DealCard';
+import KanbanHeader from '../components/pipeline/KanbanHeader';
+import { toast } from 'sonner';
 
 // Column Component
-function KanbanColumn({ stage, leads }: { stage: Stage; leads: LeadCard[] }) {
+function KanbanColumn({ stage, leads }: { stage: PipelineStage; leads: Lead[] }) {
     const { setNodeRef } = useDroppable({ id: stage.id });
 
     return (
-        <div ref={setNodeRef} className="flex-shrink-0 w-72 bg-gray-100 rounded-lg p-2 mr-4 flex flex-col h-full max-h-full">
-            <h3 className="font-semibold text-gray-700 mb-3 px-2 flex justify-between">
-                <span>{stage.name}</span>
-                <span className="bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full text-xs">{leads.length}</span>
-            </h3>
-            <div className="flex-1 overflow-y-auto min-h-[100px]">
+        <div className="flex-shrink-0 w-80 bg-slate-50/50 rounded-xl p-2 mr-4 flex flex-col h-full max-h-full border border-slate-200/60">
+            <KanbanHeader stageName={stage.name} leads={leads} />
+
+            <div ref={setNodeRef} className="flex-1 overflow-y-auto min-h-[100px] px-1 pb-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
                 <SortableContext items={leads.map(l => l.id)} strategy={verticalListSortingStrategy}>
                     {leads.map((lead) => (
-                        <KanbanCard key={lead.id} lead={lead} />
+                        <DealCard key={lead.id} lead={lead} />
                     ))}
                 </SortableContext>
+                {leads.length === 0 && (
+                    <div className="h-24 border-2 border-dashed border-slate-200 rounded-lg flex items-center justify-center text-slate-400 text-xs text-center p-4">
+                        Arrastra un deal aquí
+                    </div>
+                )}
             </div>
         </div>
     );
 }
 
 export default function Pipeline() {
-    const [stages, setStages] = useState<Stage[]>([]);
-    const [leads, setLeads] = useState<LeadCard[]>([]);
+    const [stages, setStages] = useState<PipelineStage[]>([]);
+    const [leads, setLeads] = useState<Lead[]>([]);
     const [activeId, setActiveId] = useState<string | null>(null);
 
     const sensors = useSensors(
-        useSensor(PointerSensor),
+        useSensor(PointerSensor, {
+            activationConstraint: {
+                distance: 5,
+            },
+        }),
         useSensor(KeyboardSensor, {
             coordinateGetter: sortableKeyboardCoordinates,
         })
@@ -105,14 +66,33 @@ export default function Pipeline() {
 
     useEffect(() => {
         fetchData();
+
+        // Subscription for real-time updates
+        const subscription = supabase
+            .channel('pipeline_changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, (payload) => {
+                if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
+                    // Simple refresh for now to keep it safe
+                    fetchData();
+                }
+            })
+            .subscribe();
+
+        return () => {
+            subscription.unsubscribe();
+        }
     }, []);
 
     async function fetchData() {
         const { data: stagesData } = await supabase.from('pipeline_stages').select('*').order('sort_order');
-        const { data: leadsData } = await supabase.from('leads').select('id, full_name, phone, stage_id');
+        // Fetch new fields for value context
+        const { data: leadsData } = await supabase
+            .from('leads')
+            .select('id, full_name, phone, stage_id, estimated_value, currency, source, updated_at, created_at')
+            .order('updated_at', { ascending: false });
 
         if (stagesData) setStages(stagesData);
-        if (leadsData) setLeads(leadsData);
+        if (leadsData) setLeads(leadsData as Lead[]);
     }
 
     function handleDragStart(event: DragStartEvent) {
@@ -126,83 +106,89 @@ export default function Pipeline() {
         if (!over) return;
 
         const leadId = active.id as string;
-        // Dropped locally on a column (droppable) or another item (sortable)
-        // dnd-kit logic: if over.id is a stage, we move there. If over.id is a card, we move to that card's stage.
-
         let targetStageId = over.id as string;
 
-        // Check if over.id is a card
+        // Check if over.id is a card (dropped on top of another card)
         const overLead = leads.find(l => l.id === over.id);
         if (overLead) {
-            targetStageId = overLead.stage_id;
+            targetStageId = overLead.stage_id || '';
         }
 
-        // Is it a stage?
+        // Validate target is a valid stage
         if (!stages.find(s => s.id === targetStageId) && !overLead) {
-            // Unknown drop target
             return;
         }
 
+        // Find current lead to check if it actually moved
         const currentLead = leads.find(l => l.id === leadId);
-        if (!currentLead) return;
+        if (!currentLead || currentLead.stage_id === targetStageId) return;
 
-        if (currentLead.stage_id !== targetStageId) {
-            // Optimistic Update
-            setLeads(prev => prev.map(l => l.id === leadId ? { ...l, stage_id: targetStageId } : l));
+        // --- Optimistic Update ---
+        const originalLeads = [...leads];
+        setLeads(prev => prev.map(l => l.id === leadId ? { ...l, stage_id: targetStageId, updated_at: new Date().toISOString() } : l));
 
-            // DB Update
+        // --- DB Update ---
+        try {
             const { error } = await supabase.from('leads').update({
                 stage_id: targetStageId,
                 updated_at: new Date().toISOString()
             }).eq('id', leadId);
 
-            // Log Event
-            if (!error) {
-                const stageName = stages.find(s => s.id === targetStageId)?.name || 'Unknown';
-                await supabase.from('lead_events').insert({
-                    lead_id: leadId,
-                    event_type: 'pipeline.stage_changed',
-                    payload: { to: stageName, manual: true }
-                });
-            } else {
-                // Revert? For MVP, just reload or ignore.
-                console.error("Failed to move", error);
-            }
+            if (error) throw error;
+
+            toast.success('Deal movido correctamente');
+
+            // Log Event (Audit)
+            const stageName = stages.find(s => s.id === targetStageId)?.name || 'Unknown';
+            await supabase.from('lead_events').insert({
+                lead_id: leadId,
+                event_type: 'pipeline.stage_changed',
+                payload: { to: stageName, manual: true }
+            });
+
+        } catch (error) {
+            console.error("Failed to move deal", error);
+            toast.error('Error al mover el deal');
+            setLeads(originalLeads); // Rollback
         }
     }
 
     return (
-        <div className="h-[calc(100vh-8rem)] flex overflow-x-auto pb-4">
-            <DndContext
-                sensors={sensors}
-                collisionDetection={closestCorners}
-                onDragStart={handleDragStart}
-                onDragEnd={handleDragEnd}
-            >
-                {stages.map((stage) => (
-                    <KanbanColumn
-                        key={stage.id}
-                        stage={stage}
-                        leads={leads.filter(l => l.stage_id === stage.id)}
-                    />
-                ))}
+        <div className="h-[calc(100vh-6rem)] flex flex-col">
+            <div className="flex-none px-6 py-4 flex justify-between items-center bg-white border-b border-gray-100">
+                <h1 className="text-2xl font-bold text-slate-800">Pipeline</h1>
+                {/* Future: Add Global Filters here as per PM Report */}
+            </div>
 
-                <DragOverlay>
-                    {activeId ? (
-                        <div className="bg-white p-3 rounded shadow-lg border border-blue-200 opacity-90 rotate-3 cursor-grabbing">
-                            {(() => {
-                                const l = leads.find(x => x.id === activeId);
-                                return (
-                                    <>
-                                        <div className="font-medium text-gray-900">{l?.full_name}</div>
-                                        <div className="text-xs text-gray-500 mt-1">{l?.phone}</div>
-                                    </>
-                                )
-                            })()}
-                        </div>
-                    ) : null}
-                </DragOverlay>
-            </DndContext>
+            <div className="flex-1 overflow-x-auto p-6 bg-slate-50">
+                <div className="flex h-full min-w-max">
+                    <DndContext
+                        sensors={sensors}
+                        collisionDetection={closestCorners}
+                        onDragStart={handleDragStart}
+                        onDragEnd={handleDragEnd}
+                    >
+                        {stages.map((stage) => (
+                            <KanbanColumn
+                                key={stage.id}
+                                stage={stage}
+                                leads={leads.filter(l => l.stage_id === stage.id)}
+                            />
+                        ))}
+
+                        <DragOverlay>
+                            {activeId ? (
+                                <div className="opacity-90 rotate-2 cursor-grabbing scale-105">
+                                    {(() => {
+                                        const l = leads.find(x => x.id === activeId);
+                                        return l ? <DealCard lead={l} /> : null;
+                                    })()}
+                                </div>
+                            ) : null}
+                        </DragOverlay>
+                    </DndContext>
+                </div>
+            </div>
         </div>
     );
 }

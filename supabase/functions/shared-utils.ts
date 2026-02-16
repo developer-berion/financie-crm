@@ -397,6 +397,55 @@ export async function sendEmail(lead: any) {
     }
 }
 
+export async function syncContactToBrevo(lead: any) {
+    const apiKey = Deno.env.get('BREVO_API_KEY');
+    if (!apiKey) {
+        console.warn('BREVO_API_KEY not set. Skipping Brevo CRM sync.');
+        return { success: false, error: 'Missing API Key' };
+    }
+
+    // Prepare attributes (UPPERCASE keys as required by Brevo)
+    const attributes: Record<string, string> = {
+        'NOMBRE': lead.full_name || '',
+    };
+
+    if (lead.phone) {
+        // Ensure + prefix for international format
+        attributes['SMS'] = lead.phone.startsWith('+') ? lead.phone : `+${lead.phone.replace(/\D/g, '')}`;
+    }
+
+    console.log(`Syncing contact ${lead.email} to Brevo CRM...`);
+    try {
+        const response = await fetch('https://api.brevo.com/v3/contacts', {
+            method: 'POST',
+            headers: {
+                'accept': 'application/json',
+                'api-key': apiKey,
+                'content-type': 'application/json'
+            },
+            body: JSON.stringify({
+                email: lead.email,
+                attributes: attributes,
+                updateEnabled: true
+            })
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`Brevo Sync Error (${response.status}):`, errorText);
+            return { success: false, error: errorText };
+        }
+
+        const data = await response.json();
+        console.log('Contact synced to Brevo successfully:', data);
+        return { success: true, id: data.id };
+
+    } catch (error) {
+        console.error('Exception syncing contact to Brevo:', error);
+        return { success: false, error: error.message };
+    }
+}
+
 export async function triggerCall(leadId: string) {
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -485,6 +534,25 @@ export async function orchestrateLead(supabase: any, lead: any) {
             status: 'success',
             message_safe: 'Email notification sent',
             payload_ref: { messageId: emailRes.messageId, lead_id: leadId }
+        });
+    }
+
+    // 0.1 Sync Lead to Brevo CRM Contacts
+    if (lead.email) {
+        console.log(`Initiating Brevo CRM sync for lead ${leadId}...`);
+        const syncRes = await syncContactToBrevo(lead);
+        
+        await supabase.from('integration_logs').insert({
+            provider: 'brevo_crm',
+            status: syncRes.success ? 'success' : 'failure',
+            message_safe: syncRes.success ? 'Lead synced to Brevo CRM' : 'Failed to sync lead to Brevo CRM',
+            payload_ref: { error: syncRes.error, brevo_id: syncRes.id, lead_id: leadId }
+        });
+
+        await supabase.from('lead_events').insert({
+            lead_id: leadId,
+            event_type: syncRes.success ? 'brevo.synced' : 'brevo.sync_failed',
+            payload: { success: syncRes.success, error: syncRes.error, brevo_id: syncRes.id }
         });
     }
 

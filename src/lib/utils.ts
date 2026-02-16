@@ -76,5 +76,5 @@ export function formatLeadTime(dateStr: string, stateStr?: string) {
 
     const friendlyZone = FRIENDLY_TIMEZONE_NAMES[timeZone] || timeZone.split('/')[1].replace('_', ' ');
 
-    return { time, day, friendlyZone, timeZone };
+    return { time, day, date: day, friendlyZone, timeZone };
 }

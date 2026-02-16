@@ -29,9 +29,11 @@ interface NoteModalProps {
     note?: Note | null;
     leadId: string;
     onNoteSaved: () => void;
+    initialTitle?: string;
+    initialContent?: string;
 }
 
-export default function NoteModal({ isOpen, onClose, note, leadId, onNoteSaved }: NoteModalProps) {
+export default function NoteModal({ isOpen, onClose, note, leadId, onNoteSaved, initialTitle = '', initialContent = '' }: NoteModalProps) {
     const [title, setTitle] = useState('');
     const [content, setContent] = useState('');
     const [loading, setLoading] = useState(false);
@@ -45,12 +47,12 @@ export default function NoteModal({ isOpen, onClose, note, leadId, onNoteSaved }
                 setContent(note.content);
                 fetchVersions(note.id);
             } else {
-                setTitle('');
-                setContent('');
+                setTitle(initialTitle);
+                setContent(initialContent);
                 setVersions([]);
             }
         }
-    }, [isOpen, note]);
+    }, [isOpen, note, initialTitle, initialContent]);
 
     const fetchVersions = async (noteId: string) => {
         setLoadingVersions(true);

@@ -11,10 +11,13 @@ import Tasks from './pages/Tasks';
 import Agentes from './pages/Agentes';
 import AgentDetail from './pages/AgentDetail';
 
+import { Toaster } from 'sonner';
+
 function App() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
+    <AuthProvider>
+      <Toaster position="top-right" />
+      <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
 
@@ -33,8 +36,8 @@ function App() {
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-      </AuthProvider>
-    </BrowserRouter>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }
 

@@ -62,6 +62,7 @@ export default function LeadTable({ leads, title = 'Reporte de Leads' }: LeadTab
                         <tr className="bg-brand-bg/50 border-b border-brand-border">
                             <th className="px-8 py-4 text-xs font-bold text-brand-text/60 uppercase tracking-wider w-16">#</th>
                             <th className="px-8 py-4 text-xs font-bold text-brand-text/60 uppercase tracking-wider">Lead</th>
+                            <th className="px-8 py-4 text-xs font-bold text-brand-text/60 uppercase tracking-wider">Valor</th>
                             <th className="px-8 py-4 text-xs font-bold text-brand-text/60 uppercase tracking-wider">Email</th>
                             <th className="px-8 py-4 text-xs font-bold text-brand-text/60 uppercase tracking-wider">Teléfono</th>
                             <th className="px-8 py-4 text-xs font-bold text-brand-text/60 uppercase tracking-wider">Estatus</th>
@@ -83,6 +84,9 @@ export default function LeadTable({ leads, title = 'Reporte de Leads' }: LeadTab
                                     >
                                         {lead.full_name}
                                     </Link>
+                                </td>
+                                <td className="px-8 py-5 text-sm font-bold text-green-700">
+                                    {lead.estimated_value ? `$ ${lead.estimated_value.toLocaleString()}` : '-'}
                                 </td>
                                 <td className="px-8 py-5 text-sm text-brand-text font-medium">
                                     {lead.email || '-'}

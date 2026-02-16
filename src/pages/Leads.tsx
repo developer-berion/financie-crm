@@ -12,6 +12,8 @@ interface Lead {
     state: string;
     source: string;
     created_at: string;
+    estimated_value?: number;
+    currency?: string;
     pipeline_stages: {
         name: string;
     } | { name: string }[] | null;
@@ -38,6 +40,8 @@ export default function Leads() {
         state,
         source,
         created_at,
+        estimated_value,
+        currency,
         pipeline_stages (
           name
         )
@@ -92,6 +96,7 @@ export default function Leads() {
                     <thead className="bg-gray-50">
                         <tr>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Valor</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Teléfono</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Etapa</th>
@@ -102,9 +107,9 @@ export default function Leads() {
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                         {loading ? (
-                            <tr><td colSpan={7} className="px-6 py-4 text-center">Cargando...</td></tr>
+                            <tr><td colSpan={8} className="px-6 py-4 text-center">Cargando...</td></tr>
                         ) : filteredLeads.length === 0 ? (
-                            <tr><td colSpan={7} className="px-6 py-4 text-center text-gray-500">No se encontraron leads.</td></tr>
+                            <tr><td colSpan={8} className="px-6 py-4 text-center text-gray-500">No se encontraron leads.</td></tr>
                         ) : (
                             filteredLeads.map((lead) => (
                                 <tr key={lead.id} className="hover:bg-gray-50">
@@ -112,6 +117,9 @@ export default function Leads() {
                                         <div className="text-sm font-medium text-blue-600 hover:text-blue-900">
                                             <Link to={`/leads/${lead.id}`}>{lead.full_name}</Link>
                                         </div>
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-green-700">
+                                        {lead.estimated_value ? `$ ${lead.estimated_value.toLocaleString()}` : '-'}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{lead.phone}</td>
                                     <td className="px-6 py-4 whitespace-nowrap">
