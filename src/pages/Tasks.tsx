@@ -33,9 +33,24 @@ export default function Tasks() {
         fetchTasks();
     }
 
+    const pendingTasks = tasks.filter(t => t.status !== 'completed').length;
+
     return (
-        <div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-6">Tareas</h1>
+        <div className="space-y-6">
+            {/* Integrated Page Header */}
+            <div className="border-b border-gray-200 pb-5">
+                <div className="flex items-baseline justify-between">
+                    <div>
+                        <h1 className="text-3xl font-bold text-gray-900">Tareas</h1>
+                        <p className="mt-1 text-sm text-gray-500">
+                            Gestión de tareas y recordatorios
+                        </p>
+                    </div>
+                    <div className="text-sm font-medium text-gray-500">
+                        {pendingTasks} pendientes
+                    </div>
+                </div>
+            </div>
 
             <div className="bg-white shadow overflow-hidden sm:rounded-md">
                 <ul className="divide-y divide-gray-200">

@@ -178,9 +178,19 @@ export default function Pipeline() {
 
     return (
         <div className="h-[calc(100vh-6rem)] flex flex-col">
-            <div className="flex-none px-6 py-4 flex justify-between items-center bg-white border-b border-gray-100">
-                <h1 className="text-2xl font-bold text-slate-800">Pipeline</h1>
-                {/* Future: Add Global Filters here as per PM Report */}
+            {/* Integrated Page Header */}
+            <div className="flex-none px-6 py-4 bg-white border-b border-gray-200">
+                <div className="flex items-baseline justify-between">
+                    <div>
+                        <h1 className="text-3xl font-bold text-gray-900">Pipeline</h1>
+                        <p className="mt-1 text-sm text-gray-500">
+                            Visualiza y gestiona el flujo de oportunidades
+                        </p>
+                    </div>
+                    <div className="text-sm font-medium text-gray-500">
+                        {leads.length} deals activos
+                    </div>
+                </div>
             </div>
 
             <div className="flex-1 overflow-x-auto p-6 bg-slate-50">

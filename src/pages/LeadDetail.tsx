@@ -6,6 +6,7 @@ import Modal from '../components/Modal';
 import NoteModal from '../components/NoteModal';
 import MetricBar from '../components/MetricBar';
 import QualificationPanel from '../components/QualificationPanel';
+import Breadcrumb from '../components/Breadcrumb';
 
 import { Phone, Clock, MessageCircle, Plus, FileText, Edit3, Layout, Info, ExternalLink, Calendar } from 'lucide-react';
 import { cn, formatLeadTime } from '../lib/utils';
@@ -212,19 +213,28 @@ export default function LeadDetail() {
     const currentStageName = stages.find(s => s.id === currentStageId)?.name || '';
 
 
+    const sourceLabel = lead.source === 'facebook' ? 'Facebook' : lead.source === 'web' ? 'Web' : lead.source || 'Desconocido';
+
     return (
         <div className="max-w-7xl mx-auto pb-20 font-sans text-brand-text bg-gray-50 min-h-screen">
-            {/* Header Sticky */}
             <div className="bg-white border-b border-brand-border sticky top-0 z-10 shadow-sm">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+                    <Breadcrumb items={[
+                        { label: 'Inicio', href: '/' },
+                        { label: 'Leads', href: '/leads' },
+                        { label: lead.full_name }
+                    ]} />
+
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                        {/* Lead Name and Status */}
                         <div className="flex items-center gap-5">
-                            <div className="w-16 h-16 rounded-2xl bg-brand-bg flex items-center justify-center text-brand-primary text-2xl font-bold shadow-inner border border-brand-border/50">
+                            <div className="w-16 h-16 rounded-2xl bg-brand-bg flex items-center justify-center text-gray-600 text-2xl font-bold shadow-inner border border-brand-border/50">
                                 {lead.full_name?.charAt(0)}
                             </div>
                             <div>
-                                <h1 className="text-3xl font-bold text-brand-primary tracking-tight leading-time">{lead.full_name}</h1>
+                                <h1 className="text-3xl font-bold text-gray-900 tracking-tight leading-tight">{lead.full_name}</h1>
+                                <p className="mt-1 text-sm text-gray-500">
+                                    {currentStageName} • {sourceLabel}
+                                </p>
                                 <div className="flex items-center gap-3 mt-1">
                                     <span className={cn(
                                         "px-3 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider border shadow-sm",

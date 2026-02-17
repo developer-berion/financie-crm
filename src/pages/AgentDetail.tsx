@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { User, Phone, Mail, Calendar, ExternalLink, Clock } from 'lucide-react';
 import { cn } from '../lib/utils';
 import SyncCalendlyButton from '../components/SyncCalendlyButton';
+import Breadcrumb from '../components/Breadcrumb';
 
 export default function AgentDetail() {
     const { id } = useParams<{ id: string }>();
@@ -47,17 +48,27 @@ export default function AgentDetail() {
 
     const events = agent.calendly_events || [];
 
+    const formattedDate = agent.created_at ? new Date(agent.created_at).toLocaleDateString('es-ES', { year: 'numeric', month: 'short', day: 'numeric' }) : 'Fecha desconocida';
+
     return (
         <div className="max-w-7xl mx-auto space-y-8 pb-20 font-sans text-brand-text">
-            {/* Header Section */}
             <div className="bg-white rounded-2xl shadow-sm border border-brand-border p-6 md:p-8">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                <Breadcrumb items={[
+                    { label: 'Inicio', href: '/' },
+                    { label: 'Agentes', href: '/agentes' },
+                    { label: agent.full_name }
+                ]} />
+
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mt-4">
                     <div className="flex items-center gap-5">
-                        <div className="w-16 h-16 rounded-2xl bg-brand-bg flex items-center justify-center text-brand-primary text-2xl font-bold shadow-inner">
+                        <div className="w-16 h-16 rounded-2xl bg-brand-bg flex items-center justify-center text-gray-600 text-2xl font-bold shadow-inner">
                             {agent.full_name?.charAt(0) || <User />}
                         </div>
                         <div>
-                            <h1 className="text-3xl font-bold text-brand-primary tracking-tight">{agent.full_name}</h1>
+                            <h1 className="text-3xl font-bold text-gray-900 tracking-tight">{agent.full_name}</h1>
+                            <p className="mt-1 text-sm text-gray-500">
+                                Registrado el {formattedDate}
+                            </p>
                             <div className="flex items-center gap-2 mt-2 text-sm text-gray-500">
                                 <span className="flex items-center gap-1"><Mail className="w-3 h-3" /> {agent.email}</span>
                                 <span className="flex items-center gap-1 ml-3"><Phone className="w-3 h-3" /> {agent.phone_number}</span>
