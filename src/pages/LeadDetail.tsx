@@ -9,7 +9,7 @@ import QualificationPanel from '../components/QualificationPanel';
 import Breadcrumb from '../components/Breadcrumb';
 
 import { Phone, Clock, MessageCircle, Plus, FileText, Edit3, Layout, Info, ExternalLink, Calendar } from 'lucide-react';
-import { cn, formatLeadTime } from '../lib/utils';
+import { cn, formatLeadTime, ENABLE_AI_FEATURES } from '../lib/utils';
 import { toast } from 'sonner';
 import { PopupModal, useCalendlyEventListener } from "react-calendly";
 import AppointmentsList from '../components/AppointmentsList';
@@ -108,7 +108,7 @@ export default function LeadDetail() {
     const rootElement = document.getElementById("root");
 
     useCalendlyEventListener({
-        onEventScheduled: async (_e) => {
+        onEventScheduled: async () => {
             setIsCalendlyOpen(false);
             toast.success('Reunión agendada con éxito');
             toast.loading('Sincronizando con Calendly...', { id: 'sync-calendly' });
@@ -130,7 +130,7 @@ export default function LeadDetail() {
     const [initialNoteTitle, setInitialNoteTitle] = useState('');
 
 
-    const handleUpdateLead = async (field: string, value: any) => {
+    const handleUpdateLead = async (field: string, value: unknown) => {
         try {
             const { error } = await supabase
                 .from('leads')
@@ -421,7 +421,20 @@ export default function LeadDetail() {
                                 Línea de Tiempo
                             </h3>
                             <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
-                                <Timeline events={events} />
+                                <Timeline
+                                    events={events}
+                                    onEventClick={(e) => {
+                                        if (e.event_type === 'conversation.completed') {
+                                            const p = e.payload as Record<string, unknown>;
+                                            const analysis = p?.analysis as Record<string, unknown>;
+                                            setConversation({
+                                                summary: analysis?.summary as string,
+                                                transcript: (p?.transcript || p?.transcription) as string
+                                            });
+                                            setIsTranscriptModalOpen(true);
+                                        }
+                                    }}
+                                />
                             </div>
                         </div>
 
@@ -484,33 +497,35 @@ export default function LeadDetail() {
                 initialTitle={initialNoteTitle}
             />
 
-            {/* View/Edit Conversation Transcript Modal */}
-            <Modal
-                isOpen={isTranscriptModalOpen}
-                onClose={() => setIsTranscriptModalOpen(false)}
-                title="Transcripción de Llamada"
-            >
-                <div className="space-y-6">
-                    <div className="bg-brand-primary text-white p-6 rounded-xl shadow-inner">
-                        <div className="flex items-center gap-3 mb-3">
-                            <div className="w-1.5 h-1.5 rounded-full bg-brand-accent" />
-                            <span className="text-[10px] font-bold uppercase tracking-widest text-brand-accent">Resumen</span>
+            {/* View/Edit Conversation Transcript Modal (AI FEATURE) */}
+            {ENABLE_AI_FEATURES && (
+                <Modal
+                    isOpen={isTranscriptModalOpen}
+                    onClose={() => setIsTranscriptModalOpen(false)}
+                    title="Transcripción de Llamada"
+                >
+                    <div className="space-y-6">
+                        <div className="bg-brand-primary text-white p-6 rounded-xl shadow-inner">
+                            <div className="flex items-center gap-3 mb-3">
+                                <div className="w-1.5 h-1.5 rounded-full bg-brand-accent" />
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-brand-accent">Resumen</span>
+                            </div>
+                            <p className="text-sm font-medium leading-relaxed opacity-90">
+                                {conversation?.summary}
+                            </p>
                         </div>
-                        <p className="text-sm font-medium leading-relaxed opacity-90">
-                            {conversation?.summary}
-                        </p>
-                    </div>
 
-                    <div className="space-y-3">
-                        <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest border-b border-gray-100 pb-2">
-                            Diálogo Completo
-                        </h4>
-                        <div className="bg-gray-50 rounded-xl p-6 text-sm font-mono text-brand-text leading-relaxed whitespace-pre-wrap border border-gray-100 max-h-[60vh] overflow-y-auto">
-                            {conversation?.transcript}
+                        <div className="space-y-3">
+                            <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest border-b border-gray-100 pb-2">
+                                Diálogo Completo
+                            </h4>
+                            <div className="bg-gray-50 rounded-xl p-6 text-sm font-mono text-brand-text leading-relaxed whitespace-pre-wrap border border-gray-100 max-h-[60vh] overflow-y-auto">
+                                {conversation?.transcript}
+                            </div>
                         </div>
                     </div>
-                </div>
-            </Modal>
+                </Modal>
+            )}
 
             {/* Calendly Modal */}
             <PopupModal

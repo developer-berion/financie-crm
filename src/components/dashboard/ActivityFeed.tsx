@@ -7,8 +7,9 @@ import {
     CalendarCheck,
     ArrowRightLeft,
     CircleDot,
+    Sparkles,
 } from 'lucide-react';
-import { cn } from '../../lib/utils';
+import { cn, ENABLE_AI_FEATURES } from '../../lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -16,7 +17,7 @@ interface LeadEvent {
     id: string;
     lead_id: string | null;
     event_type: string;
-    payload: Record<string, any> | null;
+    payload: Record<string, unknown> | null;
     created_at: string;
     lead_name?: string;
 }
@@ -36,6 +37,7 @@ const eventConfig: Record<string, { icon: typeof UserPlus; color: string; label:
     'appointment.scheduled': { icon: CalendarCheck, color: 'text-cyan-600 bg-cyan-50', label: 'Cita agendada' },
     'appointment.synced': { icon: CalendarCheck, color: 'text-cyan-600 bg-cyan-50', label: 'Cita sincronizada' },
     'pipeline.stage_changed': { icon: ArrowRightLeft, color: 'text-indigo-500 bg-indigo-50', label: 'Pipeline movido' },
+    'conversation.completed': { icon: Sparkles, color: 'text-brand-accent bg-brand-accent/10', label: 'IA: Análisis completado' },
 };
 
 const defaultConfig = { icon: CircleDot, color: 'text-gray-400 bg-gray-50', label: 'Evento' };
@@ -50,17 +52,29 @@ function getEventDescription(event: LeadEvent): string {
     if (event.event_type === 'call.completed' && event.payload?.status) {
         return `${config.label} — ${leadName}`;
     }
+    if (event.event_type === 'conversation.completed' && (event.payload as Record<string, any>)?.analysis?.summary) {
+        const payload = event.payload as Record<string, any>;
+        const summary = payload.analysis.summary;
+        return `IA: ${summary.length > 60 ? summary.substring(0, 60) + '...' : summary}`;
+    }
 
     return `${config.label} — ${leadName}`;
 }
 
 export default function ActivityFeed({ events }: ActivityFeedProps) {
+    const filteredEvents = events.filter(e => {
+        if (!ENABLE_AI_FEATURES && (e.event_type.startsWith('call.') || e.event_type.startsWith('sms.'))) {
+            return false;
+        }
+        return true;
+    });
+
     return (
         <div className="bg-white rounded-2xl shadow-sm border border-brand-border p-6 h-full">
             <h2 className="text-lg font-bold text-brand-primary mb-1">Actividad Reciente</h2>
             <p className="text-xs text-brand-text/50 mb-4">Últimos eventos del sistema</p>
 
-            {events.length === 0 ? (
+            {filteredEvents.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-10 text-center">
                     <CircleDot className="h-8 w-8 text-gray-300 mb-2" />
                     <p className="text-sm text-gray-400">Sin actividad reciente</p>
@@ -70,7 +84,7 @@ export default function ActivityFeed({ events }: ActivityFeedProps) {
                 </div>
             ) : (
                 <div className="space-y-1">
-                    {events.map((event, index) => {
+                    {filteredEvents.map((event, index) => {
                         const config = eventConfig[event.event_type] || defaultConfig;
                         const Icon = config.icon;
                         const description = getEventDescription(event);
@@ -81,7 +95,7 @@ export default function ActivityFeed({ events }: ActivityFeedProps) {
                                 key={event.id}
                                 className={cn(
                                     'flex items-start gap-3 py-2.5 px-2 rounded-lg hover:bg-gray-50/80 transition-colors',
-                                    index < events.length - 1 && 'border-b border-gray-50'
+                                    index < filteredEvents.length - 1 && 'border-b border-gray-50'
                                 )}
                             >
                                 <div className={cn('p-1.5 rounded-lg shrink-0 mt-0.5', config.color)}>

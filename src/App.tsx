@@ -11,9 +11,23 @@ import Tasks from './pages/Tasks';
 import Agentes from './pages/Agentes';
 import AgentDetail from './pages/AgentDetail';
 
-import { Toaster } from 'sonner';
+import { Toaster, toast } from 'sonner';
+import { useEffect } from 'react';
 
 function App() {
+  useEffect(() => {
+    const handleRejection = (event: PromiseRejectionEvent) => {
+      console.error('Unhandled Promise Rejection:', event.reason);
+      const message = event.reason?.message || 'Ocurrió un error inesperado en la base de datos o API.';
+      toast.error(message, {
+        description: 'Por favor, verifica tu conexión o contacta a soporte si el problema persiste.'
+      });
+    };
+
+    window.addEventListener('unhandledrejection', handleRejection);
+    return () => window.removeEventListener('unhandledrejection', handleRejection);
+  }, []);
+
   return (
     <AuthProvider>
       <Toaster position="top-right" />

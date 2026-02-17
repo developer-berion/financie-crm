@@ -72,3 +72,13 @@
 - **Decisiones tomadas:** [Carga Paralela y Desacoplamiento de LeadTable](./DECISIONS.md)
 - **Bloqueos:** Ninguno.
 - **Próximo:** Monitorear latencia de carga con volumen real de eventos.
+37: 
+40: ## 2026-02-17 (Continuación)
+41: - **Hecho:**
+42:     - Integración completa de Características de IA (Transcripciones, Resúmenes).
+43:     - Actualización de `ActivityFeed` y `Timeline` con indicadores de IA.
+44:     - Activación oficial de `call_dispatcher`.
+45:     - Limpieza de `config.toml` (eliminación de funciones obsoletas).
+46:     - Verificación de Build y Unit Tests exitosa.
+47: - **Decisiones tomadas:** Se reactiva el despachador de llamadas tras verificar la estabilidad de la integración con ElevenLabs.
+48: - **Próximo:** Despliegue final y monitoreo de webhooks reales.

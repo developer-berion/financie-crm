@@ -9,7 +9,7 @@ serve(async (req) => {
 
   try {
     const supabase = getSupabaseClient();
-    const { action, lead_data } = await req.json();
+    const { action } = await req.json();
 
     if (action === 'check_logs') {
         const { data, error } = await supabase

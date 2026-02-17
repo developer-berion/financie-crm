@@ -383,16 +383,10 @@ s3_access_key = "env(S3_ACCESS_KEY)"
 # Configures AWS_SECRET_ACCESS_KEY for S3 bucket
 s3_secret_key = "env(S3_SECRET_KEY)"
 
-[functions.meta_webhook]
+[functions.system_integrity]
 enabled = true
 verify_jwt = false
-import_map = "./functions/meta_webhook/deno.json"
-# Uncomment to specify a custom file path to the entrypoint.
-# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
-entrypoint = "./functions/meta_webhook/index.ts"
-# Specifies static files to be bundled with the function. Supports glob patterns.
-# For example, if you want to serve static HTML pages in your function:
-# static_files = [ "./functions/meta_webhook/*.html" ]
+entrypoint = "./functions/system_integrity/index.ts"
 
 
 [functions.sms_webhook]
@@ -427,10 +421,15 @@ enabled = true
 verify_jwt = false
 entrypoint = "./functions/orchestrate_lead/index.ts"
 
-[functions.health_monitor]
+[functions.process_jobs]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/process_jobs/index.ts"
+
+[functions.sync_calendly_events]
 enabled = true
 verify_jwt = false
-entrypoint = "./functions/health_monitor/index.ts"
+entrypoint = "./functions/sync_calendly_events/index.ts"
 
 [functions.make_outbound_call]
 enabled = true

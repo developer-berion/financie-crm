@@ -5,6 +5,21 @@ import { corsHeaders } from '../shared-utils.ts'
 // Configuration
 const CALENDLY_API_BASE = 'https://api.calendly.com'
 
+interface CalendlyEvent {
+  uri: string;
+  name: string;
+  status: string;
+  start_time: string;
+  end_time: string;
+  invitees?: unknown[];
+  [key: string]: unknown;
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  return String(error);
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -115,7 +130,7 @@ serve(async (req) => {
             if (agents && agents.length > 0) {
                 const agent = agents[0]
                 const currentEvents = Array.isArray(agent.calendly_events) ? agent.calendly_events : []
-                const eventExists = currentEvents.some((e: any) => e.uri === event.uri)
+                const eventExists = currentEvents.some((e: CalendlyEvent) => e.uri === event.uri)
 
                 if (!eventExists) {
                     const eventToStore = { ...event, invitee_details: invitee }
@@ -202,7 +217,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in syncCalendlyEvents:', error)
     return new Response(
-      JSON.stringify({ success: false, error: error.message }),
+      JSON.stringify({ success: false, error: getErrorMessage(error) }),
       { 
         headers: { ...corsHeaders, "Content-Type": "application/json" }, 
         status: 500 

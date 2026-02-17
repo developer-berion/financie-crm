@@ -28,3 +28,22 @@ export interface PipelineStage {
   name: string;
   sort_order: number;
 }
+
+export interface LeadEvent {
+  id: string;
+  lead_id: string | null;
+  event_type: string;
+  payload: Record<string, unknown> | null;
+  created_at: string;
+  lead_name?: string;
+}
+
+export interface ConversationResult {
+  id: string;
+  lead_id: string;
+  conversation_id: string;
+  transcript: string | null;
+  summary: string | null;
+  outcome: unknown;
+  created_at: string;
+}

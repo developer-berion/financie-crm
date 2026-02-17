@@ -51,7 +51,8 @@ async function testEventTypes() {
 
     const eventsData = await eventsRes.json()
     console.log('Event Types found:', eventsData.collection.length)
-    eventsData.collection.forEach((et: any) => {
+    interface EventType { name: string; scheduling_url: string; }
+    eventsData.collection.forEach((et: EventType) => {
         console.log(`- ${et.name} (${et.scheduling_url})`)
     })
 }

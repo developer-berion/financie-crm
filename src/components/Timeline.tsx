@@ -5,25 +5,63 @@ import {
     MessageSquare,
     UserPlus,
     ArrowRight,
-    AlertCircle
+    AlertCircle,
+    Sparkles
 } from 'lucide-react';
+import { ENABLE_AI_FEATURES } from '../lib/utils';
+
+interface PostCallAnalysis {
+    call_outcome?: string;
+    summary?: string;
+    [key: string]: unknown;
+}
+
+interface CallPayload {
+    to?: string;
+    attempt?: number;
+    success?: boolean;
+    call_id?: string;
+    text?: string;
+    scheduled_event?: { start_time: string };
+    analysis?: PostCallAnalysis;
+    body?: string;
+    error?: string;
+    reason?: string;
+    description?: string;
+    [key: string]: unknown;
+}
 
 interface TimelineEvent {
     id: string;
     event_type: string;
-    payload: any;
+    payload: Record<string, unknown> | null;
     created_at: string;
 }
 
-export default function Timeline({ events }: { events: TimelineEvent[] }) {
+interface TimelineProps {
+    events: TimelineEvent[];
+    onEventClick?: (event: TimelineEvent) => void;
+}
+
+export default function Timeline({ events, onEventClick }: TimelineProps) {
     // Filter out SMS events
-    const filteredEvents = events.filter(e => !e.event_type.startsWith('sms.'));
+    // If AI is disabled, also hide automated calls and conversations
+    const filteredEvents = events.filter(e => {
+        if (!ENABLE_AI_FEATURES) {
+            if (e.event_type.startsWith('sms.')) return false;
+            if (e.event_type.startsWith('conversation.')) return false; // Hide AI conversations
+            if (e.event_type === 'call.outbound_triggered') return false; // Hide AI calls
+            if (e.event_type === 'call.attempted') return false; // Hide AI attempts
+            if (e.event_type === 'call.scheduling_skipped') return false;
+        }
+        return !e.event_type.startsWith('sms.');
+    });
 
 
     const getIcon = (type: string) => {
         if (type.startsWith('call')) return <Phone className="h-4 w-4 text-white" />;
         if (type.startsWith('sms')) return <MessageSquare className="h-4 w-4 text-white" />;
-        if (type.startsWith('conversation')) return <MessageSquare className="h-4 w-4 text-white" />;
+        if (type.startsWith('conversation')) return <Sparkles className="h-4 w-4 text-white" />;
         if (type.startsWith('appointment')) return <Calendar className="h-4 w-4 text-white" />;
         if (type.startsWith('pipeline')) return <ArrowRight className="h-4 w-4 text-white" />;
         if (type.includes('note')) return <MessageSquare className="h-4 w-4 text-white" />;
@@ -39,7 +77,7 @@ export default function Timeline({ events }: { events: TimelineEvent[] }) {
         if (type.startsWith('lead.received')) return 'bg-green-500';
         if (type.startsWith('lead.dnc') || type.includes('dnc')) return 'bg-red-500';
         if (type.includes('failed') || type.includes('skipped')) return 'bg-red-600';
-        if (type.startsWith('conversation')) return 'bg-indigo-500';
+        if (type.startsWith('conversation')) return 'bg-brand-accent';
         return 'bg-gray-400';
     };
 
@@ -54,7 +92,7 @@ export default function Timeline({ events }: { events: TimelineEvent[] }) {
             case 'call.scheduled': return 'Agendamiento Creado';
             case 'call.scheduling_skipped': return 'Llamada automática omitida';
             case 'appointment.scheduled': return 'Cita agendada';
-            case 'pipeline.stage_changed': return `Cambio de etapa: ${e.payload?.to}`;
+            case 'pipeline.stage_changed': return `Cambio de etapa: ${(e.payload as Record<string, unknown>)?.to || ''}`;
             case 'note.added': return 'Nota agregada';
             case 'lead.dnc_set': return 'Marcado como No Llamar';
             case 'conversation.completed': return 'Conversación AI Finalizada';
@@ -71,44 +109,60 @@ export default function Timeline({ events }: { events: TimelineEvent[] }) {
     };
 
     const getDetails = (e: TimelineEvent) => {
+        const payload = e.payload as CallPayload | null;
+        if (!payload) return null;
+
         if (e.event_type === 'call.attempted') {
-            return `Intento #${e.payload?.attempt || '?'}`;
+            return `Intento #${payload.attempt || '?'}`;
         }
         if (e.event_type === 'sms.immediate_sent') {
-            return e.payload.success ? 'Envío exitoso' : 'Falló el envío';
+            return payload.success ? 'Envío exitoso' : 'Falló el envío';
         }
         if (e.event_type === 'call.outbound_triggered') {
-            return `Call ID: ${e.payload?.call_id || 'N/A'}`;
+            return `Call ID: ${payload.call_id || 'N/A'}`;
         }
         if (e.event_type === 'note.added') {
-            return <span className="italic">"{e.payload?.text}"</span>;
+            return <span className="italic">"{payload.text}"</span>;
         }
         if (e.event_type === 'appointment.scheduled') {
-            return `Inicio: ${e.payload?.scheduled_event?.start_time ? format(new Date(e.payload.scheduled_event.start_time), 'dd/MM HH:mm') : ''}`;
+            return `Inicio: ${payload.scheduled_event?.start_time ? format(new Date(payload.scheduled_event.start_time), 'dd/MM HH:mm') : ''}`;
         }
         if (e.event_type === 'conversation.completed') {
-            const outcome = e.payload?.analysis?.call_outcome || 'Analizada';
+            const outcome = payload.analysis?.call_outcome || 'Analizada';
             return (
-                <div className="space-y-1">
-                    <p className="font-medium text-indigo-700">{outcome}</p>
-                    {e.payload?.analysis?.summary && (
-                        <p className="text-xs line-clamp-2">{e.payload.analysis.summary}</p>
+                <div
+                    className="space-y-1 cursor-pointer group/item"
+                    onClick={() => onEventClick?.(e)}
+                >
+                    <div className="flex items-center gap-2">
+                        <p className="font-bold text-indigo-700 group-hover/item:text-brand-accent transition-colors">{outcome}</p>
+                        <span className="text-[10px] bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded border border-indigo-100 flex items-center gap-1 font-bold">
+                            <Sparkles className="w-2.5 h-2.5" /> IA
+                        </span>
+                    </div>
+                    {payload.analysis?.summary && (
+                        <p className="text-xs text-gray-500 line-clamp-2 italic group-hover/item:text-gray-700 transition-colors">
+                            "{payload.analysis.summary}"
+                        </p>
                     )}
+                    <button className="text-[10px] font-bold text-brand-secondary uppercase tracking-tight opacity-0 group-hover/item:opacity-100 transition-all pt-1">
+                        Ver transcripción completa →
+                    </button>
                 </div>
             );
         }
         if (e.event_type === 'sms.received') {
-            return <p className="italic">"{e.payload?.body}"</p>;
+            return <p className="italic">"{payload.body}"</p>;
         }
         if (e.event_type === 'sms.failed') {
-            return <p className="text-red-600">Error: {e.payload?.error || 'Desconocido'}</p>;
+            return <p className="text-red-600">Error: {payload.error || 'Desconocido'}</p>;
         }
         if (e.event_type === 'call.scheduling_skipped') {
-            return <p className="text-gray-500">Motivo: {e.payload?.reason === 'sms_failure' ? 'Fallo en envío de SMS inicial' : e.payload?.reason}</p>;
+            return <p className="text-gray-500">Motivo: {payload.reason === 'sms_failure' ? 'Fallo en envío de SMS inicial' : payload.reason}</p>;
         }
         // Generic description handler for new call events
-        if (e.event_type.startsWith('call.') && e.payload?.description) {
-            return <p className="text-gray-600">{e.payload.description}</p>;
+        if (e.event_type.startsWith('call.') && payload.description) {
+            return <p className="text-gray-600">{payload.description}</p>;
         }
         return null;
     };

@@ -1,5 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { corsHeaders, getSupabaseClient, verifyTwilioSignature, safeLog, maskPhone } from "../shared-utils.ts";
+import { corsHeaders, getSupabaseClient, verifyTwilioSignature, safeLog } from "../shared-utils.ts";
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  return String(error);
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -27,13 +32,12 @@ serve(async (req) => {
     const authToken = Deno.env.get('SUPABASE_AUTH_SMS_TWILIO_AUTH_TOKEN') || Deno.env.get('SMS_TWILIO_AUTH_TOKEN') || '';
     const requestUrl = req.url;
     
-    if (authToken && signature) {
-        const isValid = await verifyTwilioSignature(requestUrl, body, signature, authToken);
-        if (!isValid) {
-            console.warn('[SMS Webhook] Invalid Twilio Signature. Rejecting request.');
+    if (authToken) {
+        if (!signature || !(await verifyTwilioSignature(requestUrl, body, signature, authToken))) {
+            console.warn('[SMS Webhook] Missing or Invalid Twilio Signature. Rejecting request.');
             return new Response('Forbidden', { status: 403, headers: corsHeaders });
         }
-    } else if (!authToken) {
+    } else {
         console.warn('[SMS Webhook] Twilio auth token not configured. Signature verification skipped.');
     }
 
@@ -129,8 +133,18 @@ serve(async (req) => {
     }
 
     if (leadId) {
+interface SmsEventUpdate {
+    lead_id: string;
+    message_sid: string;
+    status_raw: string;
+    last_callback_payload: Record<string, unknown>;
+    status_crm?: string;
+    delivered_at?: string;
+    failed_at?: string;
+}
+
         // Upsert into sms_events
-        const eventData: any = {
+        const eventData: SmsEventUpdate = {
             lead_id: leadId,
             message_sid: MessageSid,
             status_raw: status,
@@ -182,7 +196,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Webhook Error:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: getErrorMessage(error) }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

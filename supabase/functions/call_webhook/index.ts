@@ -25,13 +25,12 @@ serve(async (req) => {
     const authToken = Deno.env.get('SUPABASE_AUTH_SMS_TWILIO_AUTH_TOKEN') || Deno.env.get('SMS_TWILIO_AUTH_TOKEN') || '';
     const requestUrl = req.url;
 
-    if (authToken && signature) {
-        const isValid = await verifyTwilioSignature(requestUrl, body, signature, authToken);
-        if (!isValid) {
-            console.warn('[Call Webhook] Invalid Twilio Signature. Rejecting request.');
+    if (authToken) {
+        if (!signature || !(await verifyTwilioSignature(requestUrl, body, signature, authToken))) {
+            console.warn('[Call Webhook] Missing or Invalid Twilio Signature. Rejecting request.');
             return new Response('Forbidden', { status: 403, headers: corsHeaders });
         }
-    } else if (!authToken) {
+    } else {
         console.warn('[Call Webhook] Twilio auth token not configured. Signature verification skipped.');
     }
 

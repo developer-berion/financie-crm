@@ -1,9 +1,9 @@
 # Pending Tasks
 
 ## High Priority
-- [ ] **Production Build**: Run `npm run build` and deploy to Hostinger.
+- [x] **Production Build**: Run `npm run build` and deploy to Hostinger.
 - [ ] **Webhook Verification (Live)**: Once deployed/exposed, verifies real Meta and Calendly payloads.
-- [ ] **ElevenLabs**: Replace the "Stub" in `call_dispatcher` with real API call (requires API Key).
+- [x] **ElevenLabs**: Replace the "Stub" in `call_dispatcher` with real API call.
 - [ ] **Cron Job**: Set up a Cron Job (Supabase pg_cron or external) to hit `[FUNCTION_URL]/call_dispatcher` every 5-15 minutes.
 
 ## Improvements / Next Phase

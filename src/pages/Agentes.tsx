@@ -6,9 +6,17 @@ import { Search, Mail, Phone, Calendar, ChevronUp, ChevronDown, ChevronsUpDown, 
 import SyncCalendlyButton from '../components/SyncCalendlyButton';
 import { cn } from '../lib/utils';
 
+interface Agent {
+    id: string;
+    full_name: string;
+    email: string;
+    phone_number: string;
+    created_at: string;
+    calendly_events?: unknown[];
+}
+
 export default function Agentes() {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const [agentes, setAgentes] = useState<any[]>([]);
+    const [agentes, setAgentes] = useState<Agent[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [sortColumn, setSortColumn] = useState<'name' | 'events' | 'created_at' | null>('created_at');
@@ -50,18 +58,15 @@ export default function Agentes() {
         if (!sortColumn) return filteredAgentes;
 
         return [...filteredAgentes].sort((a, b) => {
-            let aVal: any, bVal: any;
+            const getVal = (agent: Agent, col: string) => {
+                if (col === 'name') return agent.full_name?.toLowerCase() || '';
+                if (col === 'events') return agent.calendly_events?.length || 0;
+                if (col === 'created_at') return new Date(agent.created_at).getTime();
+                return 0;
+            };
 
-            if (sortColumn === 'name') {
-                aVal = a.full_name?.toLowerCase() || '';
-                bVal = b.full_name?.toLowerCase() || '';
-            } else if (sortColumn === 'events') {
-                aVal = a.calendly_events?.length || 0;
-                bVal = b.calendly_events?.length || 0;
-            } else if (sortColumn === 'created_at') {
-                aVal = new Date(a.created_at).getTime();
-                bVal = new Date(b.created_at).getTime();
-            }
+            const aVal = getVal(a, sortColumn!);
+            const bVal = getVal(b, sortColumn!);
 
             if (sortDirection === 'asc') {
                 return aVal > bVal ? 1 : -1;
@@ -78,16 +83,6 @@ export default function Agentes() {
             setSortColumn(column);
             setSortDirection('asc');
         }
-    };
-
-    // Render sort icon
-    const SortIcon = ({ column }: { column: 'name' | 'events' | 'created_at' }) => {
-        if (sortColumn !== column) {
-            return <ChevronsUpDown className="w-4 h-4 opacity-0 group-hover:opacity-50 transition-opacity" />;
-        }
-        return sortDirection === 'asc'
-            ? <ChevronUp className="w-4 h-4" />
-            : <ChevronDown className="w-4 h-4" />;
     };
 
     // Get badge style for Calendly events
@@ -150,7 +145,7 @@ export default function Agentes() {
                                         )}
                                     >
                                         <span>Nombre</span>
-                                        <SortIcon column="name" />
+                                        <SortIcon column="name" sortColumn={sortColumn} sortDirection={sortDirection} />
                                     </button>
                                 </th>
 
@@ -167,7 +162,7 @@ export default function Agentes() {
                                         )}
                                     >
                                         <span>Eventos Calendly</span>
-                                        <SortIcon column="events" />
+                                        <SortIcon column="events" sortColumn={sortColumn} sortDirection={sortDirection} />
                                     </button>
                                 </th>
 
@@ -181,7 +176,7 @@ export default function Agentes() {
                                         )}
                                     >
                                         <span>Fecha Registro</span>
-                                        <SortIcon column="created_at" />
+                                        <SortIcon column="created_at" sortColumn={sortColumn} sortDirection={sortDirection} />
                                     </button>
                                 </th>
 
@@ -271,4 +266,18 @@ export default function Agentes() {
             </div>
         </div>
     );
+}
+
+// Helper Component for Sorting Icons
+function SortIcon({ column, sortColumn, sortDirection }: {
+    column: 'name' | 'events' | 'created_at',
+    sortColumn: 'name' | 'events' | 'created_at' | null,
+    sortDirection: 'asc' | 'desc'
+}) {
+    if (sortColumn !== column) {
+        return <ChevronsUpDown className="w-4 h-4 opacity-0 group-hover:opacity-50 transition-opacity" />;
+    }
+    return sortDirection === 'asc'
+        ? <ChevronUp className="w-4 h-4" />
+        : <ChevronDown className="w-4 h-4" />;
 }

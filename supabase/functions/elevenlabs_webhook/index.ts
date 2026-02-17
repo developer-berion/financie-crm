@@ -25,8 +25,8 @@ serve(async (req) => {
     safeLog('[ElevenLabs] Webhook received', { type: body.type, call_id: body.call_id });
 
     // 1. Validate Signature
-    if (signature && !(await verifyElevenLabsSignature(rawBody, signature, ELEVENLABS_WEBHOOK_SECRET))) {
-      console.error('Invalid ElevenLabs Signature');
+    if (!signature || !(await verifyElevenLabsSignature(rawBody, signature, ELEVENLABS_WEBHOOK_SECRET))) {
+      console.error('Missing or Invalid ElevenLabs Signature');
       return new Response('Unauthorized', { status: 401 });
     }
 

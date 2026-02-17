@@ -1,6 +1,6 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { crypto } from "https://deno.land/std@0.224.0/crypto/mod.ts";
-import { encodeHex } from "https://deno.land/std@0.224.0/encoding/hex.ts";
+
 
 // ── CORS Configuration (CRM-005) ──────────────────────────────────────
 // Allowed origins for browser-based requests.
@@ -12,6 +12,12 @@ const ALLOWED_ORIGINS = [
   'http://localhost:5173',   // Vite dev
   'http://localhost:3000',   // Alt dev
 ];
+
+// ── Feature Flags (CRM-009) ───────────────────────────────────────────
+// Master switch for Twilio and ElevenLabs integrations.
+// Defaults to FALSE to ensure features are hidden/disabled in production.
+export const COMMUNICATIONS_ENABLED = Deno.env.get('ENABLE_TWILIO_ELEVENLABS') === 'true';
+
 
 export function getCorsHeaders(req?: Request): Record<string, string> {
   const origin = req?.headers?.get('origin') || '';
@@ -153,7 +159,7 @@ export function getSafeCallTime(stateStr?: string): Date {
         }
 
         // Calculate target UTC for 9 AM local
-        let targetLocal = new Date(formatter.format(now));
+        const targetLocal = new Date(formatter.format(now));
         if (localHour >= 20) {
             targetLocal.setDate(targetLocal.getDate() + 1);
         }
@@ -330,6 +336,11 @@ export async function verifyTwilioSignature(url: string, params: Record<string, 
 }
 
 export async function sendSms(to: string, body: string) {
+    if (!COMMUNICATIONS_ENABLED) {
+        console.warn('Twilio/ElevenLabs disabled via ENABLE_TWILIO_ELEVENLABS=false. SMS skipped:', { to, body });
+        return { success: true, simulated: true, sid: 'DISABLED_BY_CONFIG' };
+    }
+
     const accountSid = Deno.env.get('SMS_TWILIO_ACCOUNT_SID') || Deno.env.get('SUPABASE_AUTH_SMS_TWILIO_ACCOUNT_SID');
     const authToken = Deno.env.get('SMS_TWILIO_AUTH_TOKEN') || Deno.env.get('SUPABASE_AUTH_SMS_TWILIO_AUTH_TOKEN');
     const fromNumber = Deno.env.get('TWILIO_PHONE_NUMBER') || Deno.env.get('SUPABASE_AUTH_SMS_TWILIO_MESSAGE_SERVICE_SID');
@@ -390,7 +401,18 @@ export async function sendSms(to: string, body: string) {
 
 
 
-export async function sendEmail(lead: any) {
+interface LeadContext {
+    id: string;
+    full_name: string;
+    phone: string;
+    email?: string;
+    state?: string;
+    status?: string;
+    source?: string;
+    [key: string]: unknown;
+}
+
+export async function sendEmail(lead: LeadContext) {
     const apiKey = Deno.env.get('BREVO_API_KEY');
     if (!apiKey) {
         console.error('BREVO_API_KEY not set. Skipping email notification.');
@@ -488,7 +510,7 @@ export async function sendEmail(lead: any) {
     }
 }
 
-export async function syncContactToBrevo(lead: any) {
+export async function syncContactToBrevo(lead: LeadContext) {
     const apiKey = Deno.env.get('BREVO_API_KEY');
     if (!apiKey) {
         console.warn('BREVO_API_KEY not set. Skipping Brevo CRM sync.');
@@ -539,7 +561,13 @@ export async function syncContactToBrevo(lead: any) {
 
 export async function triggerCall(leadId: string) {
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
+
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+    if (!COMMUNICATIONS_ENABLED) {
+        console.warn('Twilio/ElevenLabs disabled via ENABLE_TWILIO_ELEVENLABS=false. Call skipped for lead:', leadId);
+        return { success: true, call_id: 'DISABLED_BY_CONFIG' };
+    }
 
     if (!supabaseUrl || !serviceRoleKey) {
         return { success: false, error: 'Internal environment variables missing' };
@@ -563,7 +591,7 @@ export async function triggerCall(leadId: string) {
         try {
             textBody = await response.text();
             data = JSON.parse(textBody);
-        } catch (e) {
+        } catch {
             data = { raw: textBody };
         }
         
@@ -584,10 +612,9 @@ export async function triggerCall(leadId: string) {
  * Core orchestration logic for a lead.
  * Can be called from a Webhook, UI, or DB Trigger.
  */
-export async function orchestrateLead(supabase: any, lead: any) {
+export async function orchestrateLead(supabase: SupabaseClient, lead: LeadContext) {
     const leadId = lead.id;
     const phone = lead.phone;
-    const fullName = lead.full_name;
 
     if (!phone) return { success: false, error: 'No phone number' };
 

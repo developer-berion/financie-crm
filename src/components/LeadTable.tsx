@@ -29,18 +29,15 @@ export default function LeadTable({ leads, title = 'Reporte de Leads' }: LeadTab
         if (!sortColumn) return leads;
 
         return [...leads].sort((a, b) => {
-            let aVal: any, bVal: any;
+            const getVal = (lead: Lead, col: string) => {
+                if (col === 'name') return lead.full_name.toLowerCase();
+                if (col === 'stage') return getStageName(lead).toLowerCase();
+                if (col === 'created_at') return new Date(lead.created_at).getTime();
+                return 0;
+            };
 
-            if (sortColumn === 'name') {
-                aVal = a.full_name.toLowerCase();
-                bVal = b.full_name.toLowerCase();
-            } else if (sortColumn === 'stage') {
-                aVal = getStageName(a).toLowerCase();
-                bVal = getStageName(b).toLowerCase();
-            } else if (sortColumn === 'created_at') {
-                aVal = new Date(a.created_at).getTime();
-                bVal = new Date(b.created_at).getTime();
-            }
+            const aVal = getVal(a, sortColumn);
+            const bVal = getVal(b, sortColumn);
 
             if (sortDirection === 'asc') {
                 return aVal > bVal ? 1 : -1;
@@ -65,16 +62,6 @@ export default function LeadTable({ leads, title = 'Reporte de Leads' }: LeadTab
         }
         // Reset to page 1 when sorting changes
         setCurrentPage(1);
-    };
-
-    // Render sort icon
-    const SortIcon = ({ column }: { column: 'name' | 'stage' | 'created_at' }) => {
-        if (sortColumn !== column) {
-            return <ChevronsUpDown className="w-4 h-4 opacity-0 group-hover:opacity-50 transition-opacity" />;
-        }
-        return sortDirection === 'asc'
-            ? <ChevronUp className="w-4 h-4" />
-            : <ChevronDown className="w-4 h-4" />;
     };
 
     const getRowBorderColor = (stageName: string = '') => {
@@ -129,7 +116,7 @@ export default function LeadTable({ leads, title = 'Reporte de Leads' }: LeadTab
                                     )}
                                 >
                                     <span>Lead / Fuente</span>
-                                    <SortIcon column="name" />
+                                    <SortIcon column="name" sortColumn={sortColumn} sortDirection={sortDirection} />
                                 </button>
                             </th>
 
@@ -143,7 +130,7 @@ export default function LeadTable({ leads, title = 'Reporte de Leads' }: LeadTab
                                     )}
                                 >
                                     <span>Etapa / Estatus</span>
-                                    <SortIcon column="stage" />
+                                    <SortIcon column="stage" sortColumn={sortColumn} sortDirection={sortDirection} />
                                 </button>
                             </th>
 
@@ -163,7 +150,7 @@ export default function LeadTable({ leads, title = 'Reporte de Leads' }: LeadTab
                                     )}
                                 >
                                     <span>Fecha de Creación</span>
-                                    <SortIcon column="created_at" />
+                                    <SortIcon column="created_at" sortColumn={sortColumn} sortDirection={sortDirection} />
                                 </button>
                             </th>
 
@@ -320,4 +307,17 @@ export default function LeadTable({ leads, title = 'Reporte de Leads' }: LeadTab
             </div>
         </div>
     );
+}
+
+function SortIcon({ column, sortColumn, sortDirection }: {
+    column: 'name' | 'stage' | 'created_at',
+    sortColumn: 'name' | 'stage' | 'created_at' | null,
+    sortDirection: 'asc' | 'desc'
+}) {
+    if (sortColumn !== column) {
+        return <ChevronsUpDown className="w-4 h-4 opacity-0 group-hover:opacity-50 transition-opacity" />;
+    }
+    return sortDirection === 'asc'
+        ? <ChevronUp className="w-4 h-4" />
+        : <ChevronDown className="w-4 h-4" />;
 }

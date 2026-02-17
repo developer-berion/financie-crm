@@ -1,9 +1,16 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { corsHeaders, getSupabaseClient, getLeadContext, safeLog, maskPhone } from "../shared-utils.ts";
+import { corsHeaders, getSupabaseClient, getLeadContext, safeLog, maskPhone, COMMUNICATIONS_ENABLED } from "../shared-utils.ts";
 
 serve(async (req) => {
     if (req.method === 'OPTIONS') {
         return new Response('ok', { headers: corsHeaders })
+    }
+
+    if (!COMMUNICATIONS_ENABLED) {
+        console.warn('[MakeOutboundCall] Disabled via ENABLE_TWILIO_ELEVENLABS=false.');
+        return new Response(JSON.stringify({ success: true, call_id: 'DISABLED_BY_CONFIG' }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
     }
 
     try {

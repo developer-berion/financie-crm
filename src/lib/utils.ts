@@ -5,6 +5,9 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+export const ENABLE_AI_FEATURES = true; // Master switch for AI/Twilio/ElevenLabs UI elements
+
+
 export const US_STATE_TIMEZONES: Record<string, string> = {
   'AL': 'America/Chicago', 'AK': 'America/Anchorage', 'AZ': 'America/Phoenix', 'AR': 'America/Chicago',
   'CA': 'America/Los_Angeles', 'CO': 'America/Denver', 'CT': 'America/New_York', 'DE': 'America/New_York',

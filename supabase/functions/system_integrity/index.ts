@@ -2,6 +2,17 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
+interface SystemCheckResult {
+    service: string;
+    status: string;
+    details: string;
+}
+
+function getErrorMessage(error: unknown): string {
+    if (error instanceof Error) return error.message;
+    return String(error);
+}
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -22,7 +33,7 @@ serve(async (req) => {
   const TARGET_EMAIL = "victorstudent2411@gmail.com"; // Default recipient
 
   const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
-  const results: any[] = [];
+  const results: SystemCheckResult[] = [];
   let allSystemsGo = true;
 
   console.log("--- Starting System Integrity Check ---");
@@ -43,7 +54,7 @@ serve(async (req) => {
     });
   } catch (e) {
     console.error("Supabase Check Failed:", e);
-    results.push({ service: 'Base de Datos (Supabase)', status: '❌ CRITICAL', details: e.message || 'Connection Failed' });
+    results.push({ service: 'Base de Datos (Supabase)', status: '❌ CRITICAL', details: getErrorMessage(e) || 'Connection Failed' });
     allSystemsGo = false;
   }
 
@@ -69,7 +80,7 @@ serve(async (req) => {
             details: `Latency: ${latency}ms | Usage: ${data.character_count}/${data.character_limit}` 
         });
       } catch (e) {
-        results.push({ service: 'ElevenLabs AI', status: '❌ ERROR', details: e.message });
+        results.push({ service: 'ElevenLabs AI', status: '❌ ERROR', details: getErrorMessage(e) });
         // Non-critical for CRM uptime, but critical for AI calls
         // allSystemsGo = false; // Decided to keep it non-blocking for CRM access
       }
@@ -95,7 +106,7 @@ serve(async (req) => {
             details: `Latency: ${latency}ms | Plan: ${data.plan[0]?.type || 'Free'}` 
         });
       } catch (e) {
-        results.push({ service: 'Brevo (Email)', status: '❌ ERROR', details: e.message });
+        results.push({ service: 'Brevo (Email)', status: '❌ ERROR', details: getErrorMessage(e) });
         allSystemsGo = false;
       }
   }
@@ -118,7 +129,7 @@ serve(async (req) => {
             details: `Latency: ${latency}ms | Status: ${data.status}` 
         });
       } catch (e) {
-        results.push({ service: 'Twilio (SMS)', status: '❌ ERROR', details: e.message });
+        results.push({ service: 'Twilio (SMS)', status: '❌ ERROR', details: getErrorMessage(e) });
       }
   }
 
@@ -142,7 +153,7 @@ serve(async (req) => {
        });
 
   } catch (e) {
-      results.push({ service: 'Ingestion Webhooks', status: '❌ UNREACHABLE', details: e.message });
+      results.push({ service: 'Ingestion Webhooks', status: '❌ UNREACHABLE', details: getErrorMessage(e) });
   }
 
 
@@ -205,6 +216,21 @@ serve(async (req) => {
               htmlContent: htmlContent
           })
       });
+  }
+
+  // --- LOG TO DATABASE ---
+  try {
+      const logsToInsert = results.map(r => ({
+          service: r.service,
+          status: r.status,
+          details: r.details
+      }));
+
+      const { error: logError } = await supabase.from('integrity_logs').insert(logsToInsert);
+      if (logError) console.error("Failed to log integrity results to DB:", logError);
+      else console.log("Integrity results logged to DB successfully.");
+  } catch (e) {
+      console.error("Exception during integrity logging:", e);
   }
 
   return new Response(
