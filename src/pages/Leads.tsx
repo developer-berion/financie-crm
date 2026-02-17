@@ -51,10 +51,18 @@ export default function Leads() {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-                <h1 className="text-2xl font-bold text-gray-900">Leads</h1>
-                <div className="mt-4 sm:mt-0 flex space-x-2">
-                    {/* Placeholder for Add Lead or export */}
+            {/* Integrated Page Header */}
+            <div className="border-b border-gray-200 pb-5">
+                <div className="flex items-baseline justify-between">
+                    <div>
+                        <h1 className="text-3xl font-bold text-gray-900">Leads</h1>
+                        <p className="mt-1 text-sm text-gray-500">
+                            Gestión y seguimiento de oportunidades comerciales
+                        </p>
+                    </div>
+                    <div className="text-sm font-medium text-gray-500">
+                        {leads.length} leads activos
+                    </div>
                 </div>
             </div>
 

@@ -31,24 +31,30 @@ export default function LeadTable({ leads, title = 'Reporte de Leads' }: LeadTab
 
     const getStageBadgeStyle = (stageName: string = '') => {
         const lower = stageName.toLowerCase();
-        if (lower.includes('contacto 1')) return 'bg-emerald-100 text-emerald-800 border-emerald-200';
-        if (lower.includes('contacto 2')) return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-        if (lower.includes('contacto 3')) return 'bg-red-100 text-red-800 border-red-200';
-        return 'bg-gray-100 text-gray-600 border-gray-200';
+        if (lower.includes('contacto 1')) return 'bg-emerald-500 text-white border-emerald-600 shadow-sm';
+        if (lower.includes('contacto 2')) return 'bg-yellow-500 text-white border-yellow-600 shadow-sm';
+        if (lower.includes('contacto 3')) return 'bg-red-600 text-white border-red-700 shadow-sm';
+        if (lower.includes('ganado')) return 'bg-green-600 text-white border-green-700 shadow-sm';
+        if (lower.includes('perdido')) return 'bg-gray-400 text-white border-gray-500 shadow-sm';
+        return 'bg-indigo-500 text-white border-indigo-600 shadow-sm';
+    };
+
+    const getValueStyle = (value?: number) => {
+        if (!value) return 'text-gray-300 text-xs';
+        if (value >= 5000) return 'text-emerald-700 font-bold bg-emerald-50 border-emerald-300';
+        if (value >= 1000) return 'text-blue-700 font-bold bg-blue-50 border-blue-200';
+        return 'text-gray-700 font-semibold bg-gray-50 border-gray-200';
     };
 
     return (
         <div className="bg-white rounded-[2rem] shadow-sm border border-brand-border overflow-visible">
-            <div className="px-8 py-6 border-b border-brand-border flex justify-between items-center bg-brand-bg/50 rounded-t-[2rem]">
+            <div className="px-8 py-6 border-b border-brand-border bg-brand-bg/50 rounded-t-[2rem]">
                 <div>
                     <h2 className="text-xl font-bold text-brand-primary">{title}</h2>
                     <p className="text-xs text-gray-500 font-medium mt-1">
                         Mostrando {startIndex + 1}-{Math.min(startIndex + itemsPerPage, leads.length)} de {leads.length} leads
                     </p>
                 </div>
-                <button className="text-sm font-semibold text-brand-accent hover:text-yellow-600 flex items-center gap-1 transition-colors">
-                    Ver todo <ExternalLink className="w-4 h-4" />
-                </button>
             </div>
 
             <div className="overflow-visible min-h-[400px]">
@@ -120,7 +126,10 @@ export default function LeadTable({ leads, title = 'Reporte de Leads' }: LeadTab
                                     {/* Value */}
                                     <td className="px-6 py-4">
                                         {lead.estimated_value ? (
-                                            <div className="font-mono font-bold text-gray-700 bg-gray-50 inline-block px-2 py-1 rounded border border-gray-200">
+                                            <div className={cn(
+                                                "font-mono inline-block px-2.5 py-1 rounded border",
+                                                getValueStyle(lead.estimated_value)
+                                            )}>
                                                 ${lead.estimated_value.toLocaleString()}
                                             </div>
                                         ) : (
