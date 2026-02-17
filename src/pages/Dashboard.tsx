@@ -1,142 +1,321 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { Users, Phone, Calendar, BarChart3 } from 'lucide-react';
-import LeadTable from '../components/LeadTable';
-import type { Lead } from '../types';
+import { Users, UserPlus, Calendar, ListTodo, Zap } from 'lucide-react';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
+import StatCard from '../components/dashboard/StatCard';
+import PipelineFunnel from '../components/dashboard/PipelineFunnel';
+import ActivityFeed from '../components/dashboard/ActivityFeed';
+import UpcomingAppointments from '../components/dashboard/UpcomingAppointments';
+import AgentsSummary from '../components/dashboard/AgentsSummary';
+
+interface StageCount {
+    id: string;
+    name: string;
+    count: number;
+    sort_order: number;
+}
+
+/**
+ * Dashboard principal que centraliza las métricas de RevOps del CRM.
+ * 
+ * Implementa una arquitectura de carga en paralelo usando Promise.all para 
+ * minimizar el tiempo de bloqueo (LCP) y mejorar lo percibido por el usuario.
+ */
 export default function Dashboard() {
-    const [stats, setStats] = useState({
-        newLeadsToday: 0,
-        callsPending: 0,
-        appointmentsToday: 0,
-        totalLeads: 0
-    });
-    const [leads, setLeads] = useState<Lead[]>([]);
+    // Métricas principales (KPIs)
+    const [totalLeads, setTotalLeads] = useState(0); // Universo total de leads
+    const [leadsToday, setLeadsToday] = useState(0); // Leads captados hoy (Meta Ads)
+    const [appointmentsToday, setAppointmentsToday] = useState(0); // Citas agendadas para hoy (Calendly)
+    const [pendingTasks, setPendingTasks] = useState(0); // Tareas de seguimiento pendientes
+    const [pendingJobs, setPendingJobs] = useState(0); // Tareas automáticas (llamadas AI) procesándose
+
+    // Next appointment time badge
+    const [nextApptTime, setNextApptTime] = useState<string | null>(null);
+
+    // Pipeline
+    const [pipelineStages, setPipelineStages] = useState<StageCount[]>([]);
+
+    // Activity Feed
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const [activityEvents, setActivityEvents] = useState<any[]>([]);
+
+    // Upcoming Appointments
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const [upcomingAppointments, setUpcomingAppointments] = useState<any[]>([]);
+
+    // Agents Summary
+    const [totalAgents, setTotalAgents] = useState(0);
+    const [agentsWithInterview, setAgentsWithInterview] = useState(0);
+
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        async function fetchData() {
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            const todayIso = today.toISOString();
-
-            // New Leads Today
-            const { count: leadsToday } = await supabase
-                .from('leads')
-                .select('*', { count: 'exact', head: true })
-                .gte('created_at', todayIso);
-
-            // Pending Calls
-            const { count: callsPending } = await supabase
-                .from('jobs')
-                .select('*', { count: 'exact', head: true })
-                .eq('status', 'PENDING');
-
-            // Appointments Today
-            const tomorrow = new Date(today);
-            tomorrow.setDate(tomorrow.getDate() + 1);
-
-            const { count: apptsToday } = await supabase
-                .from('appointments')
-                .select('*', { count: 'exact', head: true })
-                .gte('start_time', todayIso)
-                .lt('start_time', tomorrow.toISOString());
-
-            // Total Leads
-            const { count: totalLeads } = await supabase
-                .from('leads')
-                .select('*', { count: 'exact', head: true });
-
-            // Latest Leads for the table (limited to 50 for the report)
-            const { data: latestLeads } = await supabase
-                .from('leads')
-                .select('*')
-                .order('created_at', { ascending: false })
-                .limit(50);
-
-            setLeads(latestLeads || []);
-            setStats({
-                newLeadsToday: leadsToday || 0,
-                callsPending: callsPending || 0,
-                appointmentsToday: apptsToday || 0,
-                totalLeads: totalLeads || 0
-            });
-            setLoading(false);
-        }
-
-        fetchData();
+        fetchDashboardData();
     }, []);
 
-    if (loading) return (
-        <div className="flex h-[60vh] items-center justify-center">
-            <div className="flex flex-col items-center gap-4">
-                <div className="h-10 w-10 animate-spin rounded-full border-4 border-brand-accent border-t-transparent"></div>
-                <p className="font-bold text-brand-secondary animate-pulse">Analizando métricas...</p>
+    async function fetchDashboardData() {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const todayIso = today.toISOString();
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+
+        try {
+            // ─── KPI Queries (parallel) ────────────────────────
+            const [
+                totalLeadsRes,
+                leadsTodayRes,
+                apptsTodayRes,
+                tasksRes,
+                jobsRes,
+            ] = await Promise.all([
+                // Total leads
+                supabase
+                    .from('leads')
+                    .select('*', { count: 'exact', head: true }),
+                // Leads today
+                supabase
+                    .from('leads')
+                    .select('*', { count: 'exact', head: true })
+                    .gte('created_at', todayIso),
+                // Appointments today
+                supabase
+                    .from('appointments')
+                    .select('*', { count: 'exact', head: true })
+                    .gte('start_time', todayIso)
+                    .lt('start_time', tomorrow.toISOString())
+                    .eq('status', 'active'),
+                // Pending tasks
+                supabase
+                    .from('tasks')
+                    .select('*', { count: 'exact', head: true })
+                    .neq('status', 'completed'),
+                // Pending jobs
+                supabase
+                    .from('jobs')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('status', 'PENDING'),
+            ]);
+
+            setTotalLeads(totalLeadsRes.count || 0);
+            setLeadsToday(leadsTodayRes.count || 0);
+            setAppointmentsToday(apptsTodayRes.count || 0);
+            setPendingTasks(tasksRes.count || 0);
+            setPendingJobs(jobsRes.count || 0);
+
+            // ─── Pipeline Distribution ─────────────────────────
+            const { data: stagesData } = await supabase
+                .from('pipeline_stages')
+                .select('id, name, sort_order')
+                .order('sort_order');
+
+            if (stagesData) {
+                const { data: leadsWithStage } = await supabase
+                    .from('leads')
+                    .select('stage_id');
+
+                const countMap: Record<string, number> = {};
+                (leadsWithStage || []).forEach((l) => {
+                    if (l.stage_id) {
+                        countMap[l.stage_id] = (countMap[l.stage_id] || 0) + 1;
+                    }
+                });
+
+                const stagesWithCounts: StageCount[] = stagesData.map((s) => ({
+                    id: s.id,
+                    name: s.name,
+                    sort_order: s.sort_order,
+                    count: countMap[s.id] || 0,
+                }));
+                setPipelineStages(stagesWithCounts);
+            }
+
+            // ─── Activity Feed (last 8 events) ────────────────
+            const { data: eventsData } = await supabase
+                .from('lead_events')
+                .select('id, lead_id, event_type, payload, created_at')
+                .order('created_at', { ascending: false })
+                .limit(8);
+
+            if (eventsData && eventsData.length > 0) {
+                // Get lead names for the events
+                const leadIds = [...new Set(eventsData.filter(e => e.lead_id).map(e => e.lead_id))];
+                const { data: leadsNames } = await supabase
+                    .from('leads')
+                    .select('id, full_name')
+                    .in('id', leadIds);
+
+                const nameMap: Record<string, string> = {};
+                (leadsNames || []).forEach((l) => {
+                    nameMap[l.id] = l.full_name || 'Lead';
+                });
+
+                const enrichedEvents = eventsData.map((e) => ({
+                    ...e,
+                    lead_name: e.lead_id ? nameMap[e.lead_id] || 'Lead' : undefined,
+                }));
+                setActivityEvents(enrichedEvents);
+            }
+
+            // ─── Upcoming Appointments ─────────────────────────
+            const { data: upcomingData } = await supabase
+                .from('appointments')
+                .select('id, lead_id, start_time, status, meeting_url')
+                .gte('start_time', new Date().toISOString())
+                .eq('status', 'active')
+                .order('start_time', { ascending: true })
+                .limit(5);
+
+            if (upcomingData && upcomingData.length > 0) {
+                const apptLeadIds = [...new Set(upcomingData.filter(a => a.lead_id).map(a => a.lead_id))];
+                const { data: apptLeadNames } = await supabase
+                    .from('leads')
+                    .select('id, full_name')
+                    .in('id', apptLeadIds);
+
+                const apptNameMap: Record<string, string> = {};
+                (apptLeadNames || []).forEach((l) => {
+                    apptNameMap[l.id] = l.full_name || 'Lead';
+                });
+
+                const enrichedAppts = upcomingData.map((a) => ({
+                    ...a,
+                    lead_name: a.lead_id ? apptNameMap[a.lead_id] || 'Lead' : undefined,
+                }));
+                setUpcomingAppointments(enrichedAppts);
+
+                // Set next appointment time badge
+                if (upcomingData[0]) {
+                    const nextTime = format(new Date(upcomingData[0].start_time), 'h:mm a', { locale: es });
+                    setNextApptTime(`Próxima: ${nextTime}`);
+                }
+            }
+
+            // ─── Agents Summary ────────────────────────────────
+            const { data: agentsData } = await supabase
+                .from('agentes')
+                .select('id, calendly_events');
+
+            if (agentsData) {
+                setTotalAgents(agentsData.length);
+                const withEvents = agentsData.filter(
+                    (a) => a.calendly_events && Array.isArray(a.calendly_events) && a.calendly_events.length > 0
+                );
+                setAgentsWithInterview(withEvents.length);
+            }
+        } catch (error) {
+            console.error('Dashboard fetch error:', error);
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    // ─── Loading State (Skeletons) ─────────────────────────
+    if (loading) {
+        return (
+            <div className="space-y-6 animate-pulse">
+                {/* Header skeleton */}
+                <div>
+                    <div className="h-8 w-40 bg-gray-200 rounded-lg" />
+                    <div className="h-4 w-64 bg-gray-100 rounded mt-2" />
+                </div>
+
+                {/* KPI skeletons */}
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+                    {[...Array(5)].map((_, i) => (
+                        <div key={i} className="bg-white p-5 rounded-2xl border border-brand-border">
+                            <div className="h-10 w-10 bg-gray-100 rounded-xl mb-3" />
+                            <div className="h-3 w-24 bg-gray-100 rounded mb-2" />
+                            <div className="h-7 w-16 bg-gray-200 rounded" />
+                        </div>
+                    ))}
+                </div>
+
+                {/* Pipeline skeleton */}
+                <div className="bg-white rounded-2xl border border-brand-border p-6">
+                    <div className="h-5 w-32 bg-gray-200 rounded mb-4" />
+                    {[...Array(6)].map((_, i) => (
+                        <div key={i} className="flex items-center gap-3 mb-2">
+                            <div className="h-3 w-32 bg-gray-100 rounded" />
+                            <div className="flex-1 h-7 bg-gray-100 rounded-lg" />
+                        </div>
+                    ))}
+                </div>
+
+                {/* Bottom grid skeleton */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="bg-white rounded-2xl border border-brand-border p-6 h-72" />
+                    <div className="bg-white rounded-2xl border border-brand-border p-6 h-72" />
+                </div>
             </div>
-        </div>
-    );
+        );
+    }
+
+    // ─── Today's date formatted ────────────────────────────
+    const todayFormatted = format(new Date(), "EEEE, d 'de' MMMM yyyy", { locale: es });
 
     return (
-        <div className="space-y-8 animate-in fade-in duration-700">
-            <div className="flex items-center justify-between">
+        <div className="space-y-6 animate-in fade-in duration-500">
+            {/* ─── Header ───────────────────────────────────── */}
+            <div className="flex items-baseline justify-between">
                 <div>
                     <h1 className="text-3xl font-bold text-brand-primary">Dashboard</h1>
-                    <p className="text-sm text-brand-text/60 mt-1">Resumen general de tu operativa</p>
+                    <p className="text-sm text-brand-text/60 mt-1 capitalize">{todayFormatted}</p>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-                {/* Card 1 - Leads Nuevos */}
-                <div className="bg-white p-6 rounded-[1.5rem] shadow-sm border border-brand-border hover:shadow-md transition-shadow group">
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="p-3 rounded-2xl bg-brand-primary/10 group-hover:bg-brand-primary/20 transition-colors">
-                            <Users className="h-6 w-6 text-brand-primary" />
-                        </div>
-                        <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-lg">+12%</span>
-                    </div>
-                    <dt className="text-sm font-medium text-brand-text/60">Leads Nuevos (Hoy)</dt>
-                    <dd className="text-3xl font-bold text-brand-primary mt-1">{stats.newLeadsToday}</dd>
-                </div>
-
-                {/* Card 2 - Llamadas Pendientes */}
-                <div className="bg-white p-6 rounded-[1.5rem] shadow-sm border border-brand-border hover:shadow-md transition-shadow group">
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="p-3 rounded-2xl bg-brand-accent/10 group-hover:bg-brand-accent/20 transition-colors">
-                            <Phone className="h-6 w-6 text-yellow-600" />
-                        </div>
-                        <span className="text-xs font-bold text-brand-text bg-brand-bg px-2.5 py-1 rounded-lg">8 hoy</span>
-                    </div>
-                    <dt className="text-sm font-medium text-brand-text/60">Llamadas Pendientes</dt>
-                    <dd className="text-3xl font-bold text-brand-primary mt-1">{stats.callsPending}</dd>
-                </div>
-
-                {/* Card 3 - Citas */}
-                <div className="bg-white p-6 rounded-[1.5rem] shadow-sm border border-brand-border hover:shadow-md transition-shadow group">
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="p-3 rounded-2xl bg-brand-secondary/10 group-hover:bg-brand-secondary/20 transition-colors">
-                            <Calendar className="h-6 w-6 text-brand-secondary" />
-                        </div>
-                        <span className="text-xs font-bold text-brand-text bg-brand-bg px-2.5 py-1 rounded-lg">Próxima: 2pm</span>
-                    </div>
-                    <dt className="text-sm font-medium text-brand-text/60">Citas (Hoy)</dt>
-                    <dd className="text-3xl font-bold text-brand-primary mt-1">{stats.appointmentsToday}</dd>
-                </div>
-
-                {/* Card 4 - Total Leads */}
-                <div className="bg-white p-6 rounded-[1.5rem] shadow-sm border border-brand-border hover:shadow-md transition-shadow group">
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="p-3 rounded-2xl bg-brand-primary/5 group-hover:bg-brand-primary/10 transition-colors">
-                            <BarChart3 className="h-6 w-6 text-brand-primary/60" />
-                        </div>
-                    </div>
-                    <dt className="text-sm font-medium text-brand-text/60">Total Leads</dt>
-                    <dd className="text-3xl font-bold text-brand-primary mt-1">{stats.totalLeads}</dd>
-                </div>
+            {/* ─── KPI Cards (5) ────────────────────────────── */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+                <StatCard
+                    title="Total Leads"
+                    value={totalLeads}
+                    icon={Users}
+                    color="primary"
+                />
+                <StatCard
+                    title="Leads Nuevos (Hoy)"
+                    value={leadsToday}
+                    icon={UserPlus}
+                    color="emerald"
+                    badge={leadsToday > 0 ? 'Nuevos hoy' : undefined}
+                />
+                <StatCard
+                    title="Citas (Hoy)"
+                    value={appointmentsToday}
+                    icon={Calendar}
+                    color="secondary"
+                    badge={nextApptTime || undefined}
+                />
+                <StatCard
+                    title="Tareas Pendientes"
+                    value={pendingTasks}
+                    icon={ListTodo}
+                    color="amber"
+                />
+                <StatCard
+                    title="Jobs en Cola"
+                    value={pendingJobs}
+                    icon={Zap}
+                    color="blue"
+                />
             </div>
 
-            <div className="mt-8">
-                <LeadTable leads={leads} />
+            {/* ─── Pipeline Funnel ──────────────────────────── */}
+            <PipelineFunnel stages={pipelineStages} />
+
+            {/* ─── Activity Feed + Upcoming Appointments ──── */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <ActivityFeed events={activityEvents} />
+                <UpcomingAppointments appointments={upcomingAppointments} />
             </div>
+
+            {/* ─── Agents Summary ───────────────────────────── */}
+            <AgentsSummary
+                totalAgents={totalAgents}
+                agentsWithInterview={agentsWithInterview}
+            />
         </div>
     );
 }

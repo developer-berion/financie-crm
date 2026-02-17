@@ -61,3 +61,14 @@
 - **Decisiones tomadas:** Se prioriza la entrada manual de notas sobre la información generada por AI para mejorar el flujo de trabajo de los agentes.
 
 - **Próximo:** Monitorear uso de notas y funcionamiento de enlaces en correos.
+
+## 2026-02-17
+- **Hecho:**
+    - Reestructuración completa del Dashboard principal.
+    - Implementación de 5 componentes especializados (`StatCard`, `PipelineFunnel`, `ActivityFeed`, `UpcomingAppointments`, `AgentsSummary`).
+    - Migración de datos hardcodeados a queries reales (`leads`, `lead_events`, `appointments`, `jobs`, `agentes`).
+    - Optimización de performance con `Promise.all` para carga paralela de métricas.
+    - Sincronización visual de etapas de pipeline con colores consistentes a través del CRM.
+- **Decisiones tomadas:** [Carga Paralela y Desacoplamiento de LeadTable](./DECISIONS.md)
+- **Bloqueos:** Ninguno.
+- **Próximo:** Monitorear latencia de carga con volumen real de eventos.

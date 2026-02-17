@@ -8,7 +8,21 @@
     - Modal de edición con historial de cambios.
     - **Archiving**: Sistema de archivado y restauración de notas con vista dedicada.
 
-## [Unreleased]
+## [2026-02-17] - Dashboard Restructuring & Real-Time Metrics
+
+### Added
+- Created 5 new dashboard sub-components: `StatCard`, `PipelineFunnel`, `ActivityFeed`, `UpcomingAppointments`, and `AgentsSummary`.
+- Implemented `PipelineFunnel` with horizontal bar visualization and RevOps stage coloring.
+- Implemented `ActivityFeed` connected to `lead_events` for audit trail visibility.
+- Imerging `UpcomingAppointments` to show Calendly synced data directly on Dashboard.
+
+### Changed
+- Complete rewrite of `Dashboard.tsx` to replace hardcoded data with real Supabase queries.
+- Shifted to parallel data fetching using `Promise.all` for performance optimization.
+- Improved header with dynamic date and consistent layout.
+- Decoupled `LeadTable` from Dashboard to focus on high-level KPIs and activity.
+
+---
 ### Changed
 - **Automation**: Suspensión temporal de llamadas automáticas (`INITIAL_CALL`) y despacho de agenda.
 - **Integration**: Desactivación de la sincronización automática de Calendly.

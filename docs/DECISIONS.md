@@ -24,3 +24,21 @@ Implementar una SPA (Single Page Application) con React/Vite alojada en Hostinge
 **Seguimiento / TODO:**
 - Configurar `.htaccess` en Hostinger para manejar rutas de React Router.
 - Asegurar cold-start tiempos aceptables en Edge Functions.
+
+## 2026-02-17 — Dashboard Data-Driven & Parallel Fetching
+**Contexto:**
+El dashboard anterior usaba métricas hardcodeadas y componentes genéricos que no aportaban valor al agente. La carga secuencial de datos causaba parpadeos visuales y delay.
+
+**Decisión:**
+1. Reestructurar el dashboard usando 5 sub-componentes especializados.
+2. Implementar queries directas a Supabase usando `Promise.all` para carga paralela.
+3. Desacoplar la tabla de leads `LeadTable` del dashboard para priorizar KPIs agregados y feeds de actividad.
+
+**Por qué:**
+- **Performance**: El tiempo de carga total se reduce al tiempo de la query más lenta, en lugar de la suma de todas.
+- **UX**: Los componentes especializados permiten una jerarquía de información más clara (RevOps Funnel).
+- **Mantenibilidad**: Es más fácil modificar una métrica específica sin afectar todo el dashboard.
+
+**Impacto:**
+- **Frontend**: Requiere suscripciones en tiempo real o recargas manuales para reflejar cambios inmediatos (implementado vía `useEffect`).
+- **DB**: Incrementa ligeramente la concurrencia de conexiones a Postgres en el mount del Dashboard, pero sigue dentro de los límites del Free Tier.
