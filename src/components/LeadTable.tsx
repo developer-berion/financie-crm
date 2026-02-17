@@ -1,9 +1,9 @@
-import { useState } from 'react';
-import { ChevronLeft, ChevronRight, ExternalLink, Phone, MessageCircle } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { ChevronLeft, ChevronRight, ExternalLink, Phone, MessageCircle, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '../lib/utils';
 import type { Lead } from '../types';
-import { formatDistanceToNow } from 'date-fns';
+import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 interface LeadTableProps {
@@ -13,11 +13,69 @@ interface LeadTableProps {
 
 export default function LeadTable({ leads, title = 'Reporte de Leads' }: LeadTableProps) {
     const [currentPage, setCurrentPage] = useState(1);
+    const [sortColumn, setSortColumn] = useState<'name' | 'stage' | 'created_at' | null>('created_at');
+    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
     const itemsPerPage = 7;
 
-    const totalPages = Math.ceil(leads.length / itemsPerPage);
+    // Helper function to get stage name from lead
+    const getStageName = (lead: Lead) => {
+        return Array.isArray(lead.pipeline_stages)
+            ? lead.pipeline_stages[0]?.name || ''
+            : lead.pipeline_stages?.name || '';
+    };
+
+    // Sort function
+    const sortedLeads = useMemo(() => {
+        if (!sortColumn) return leads;
+
+        return [...leads].sort((a, b) => {
+            let aVal: any, bVal: any;
+
+            if (sortColumn === 'name') {
+                aVal = a.full_name.toLowerCase();
+                bVal = b.full_name.toLowerCase();
+            } else if (sortColumn === 'stage') {
+                aVal = getStageName(a).toLowerCase();
+                bVal = getStageName(b).toLowerCase();
+            } else if (sortColumn === 'created_at') {
+                aVal = new Date(a.created_at).getTime();
+                bVal = new Date(b.created_at).getTime();
+            }
+
+            if (sortDirection === 'asc') {
+                return aVal > bVal ? 1 : -1;
+            }
+            return aVal < bVal ? 1 : -1;
+        });
+    }, [leads, sortColumn, sortDirection]);
+
+    const totalPages = Math.ceil(sortedLeads.length / itemsPerPage);
     const startIndex = (currentPage - 1) * itemsPerPage;
-    const currentLeads = leads.slice(startIndex, startIndex + itemsPerPage);
+    const currentLeads = sortedLeads.slice(startIndex, startIndex + itemsPerPage);
+
+    // Handle column sort click
+    const handleSort = (column: 'name' | 'stage' | 'created_at') => {
+        if (sortColumn === column) {
+            // Toggle direction if same column
+            setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+        } else {
+            // Set new column with ascending as default
+            setSortColumn(column);
+            setSortDirection('asc');
+        }
+        // Reset to page 1 when sorting changes
+        setCurrentPage(1);
+    };
+
+    // Render sort icon
+    const SortIcon = ({ column }: { column: 'name' | 'stage' | 'created_at' }) => {
+        if (sortColumn !== column) {
+            return <ChevronsUpDown className="w-4 h-4 opacity-0 group-hover:opacity-50 transition-opacity" />;
+        }
+        return sortDirection === 'asc'
+            ? <ChevronUp className="w-4 h-4" />
+            : <ChevronDown className="w-4 h-4" />;
+    };
 
     const getRowBorderColor = (stageName: string = '') => {
         const lower = stageName.toLowerCase();
@@ -61,11 +119,55 @@ export default function LeadTable({ leads, title = 'Reporte de Leads' }: LeadTab
                 <table className="w-full text-left border-collapse">
                     <thead>
                         <tr className="bg-gray-50/50 border-b border-gray-100">
-                            <th className="px-6 py-4 text-[11px] font-bold text-gray-400 uppercase tracking-wider">Lead / Fuente</th>
-                            <th className="px-6 py-4 text-[11px] font-bold text-gray-400 uppercase tracking-wider">Etapa / Estatus</th>
+                            {/* Sortable: Name */}
+                            <th className="px-6 py-4 text-[11px] font-bold uppercase tracking-wider">
+                                <button
+                                    onClick={() => handleSort('name')}
+                                    className={cn(
+                                        "flex items-center gap-2 transition-colors group",
+                                        sortColumn === 'name' ? 'text-brand-primary' : 'text-gray-400 hover:text-gray-600'
+                                    )}
+                                >
+                                    <span>Lead / Fuente</span>
+                                    <SortIcon column="name" />
+                                </button>
+                            </th>
+
+                            {/* Sortable: Stage */}
+                            <th className="px-6 py-4 text-[11px] font-bold uppercase tracking-wider">
+                                <button
+                                    onClick={() => handleSort('stage')}
+                                    className={cn(
+                                        "flex items-center gap-2 transition-colors group",
+                                        sortColumn === 'stage' ? 'text-brand-primary' : 'text-gray-400 hover:text-gray-600'
+                                    )}
+                                >
+                                    <span>Etapa / Estatus</span>
+                                    <SortIcon column="stage" />
+                                </button>
+                            </th>
+
+                            {/* Non-sortable: Value */}
                             <th className="px-6 py-4 text-[11px] font-bold text-gray-400 uppercase tracking-wider">Valor</th>
+
+                            {/* Non-sortable: Contact */}
                             <th className="px-6 py-4 text-[11px] font-bold text-gray-400 uppercase tracking-wider">Contacto Directo</th>
-                            <th className="px-6 py-4 text-[11px] font-bold text-gray-400 uppercase tracking-wider">Actividad</th>
+
+                            {/* Sortable: Creation Date (replaces Actividad) */}
+                            <th className="px-6 py-4 text-[11px] font-bold uppercase tracking-wider">
+                                <button
+                                    onClick={() => handleSort('created_at')}
+                                    className={cn(
+                                        "flex items-center gap-2 transition-colors group",
+                                        sortColumn === 'created_at' ? 'text-brand-primary' : 'text-gray-400 hover:text-gray-600'
+                                    )}
+                                >
+                                    <span>Fecha de Creación</span>
+                                    <SortIcon column="created_at" />
+                                </button>
+                            </th>
+
+                            {/* Actions column */}
                             <th className="px-6 py-4 w-24"></th>
                         </tr>
                     </thead>
@@ -155,13 +257,15 @@ export default function LeadTable({ leads, title = 'Reporte de Leads' }: LeadTab
                                         </div>
                                     </td>
 
-                                    {/* Activity */}
+                                    {/* Creation Date (replaces Activity) */}
                                     <td className="px-6 py-4">
                                         <div className="flex flex-col">
-                                            <span className="text-xs font-medium text-gray-600">
-                                                {formatDistanceToNow(new Date(lead.created_at), { addSuffix: true, locale: es })}
+                                            <span className="text-xs font-semibold text-gray-700">
+                                                {format(new Date(lead.created_at), 'dd/MM/yyyy', { locale: es })}
                                             </span>
-                                            <span className="text-[10px] text-gray-400">Creado</span>
+                                            <span className="text-[10px] text-gray-400">
+                                                {format(new Date(lead.created_at), 'HH:mm', { locale: es })}
+                                            </span>
                                         </div>
                                     </td>
 
