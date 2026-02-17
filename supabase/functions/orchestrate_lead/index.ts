@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { corsHeaders, getSupabaseClient, orchestrateLead } from "../shared-utils.ts";
+import { corsHeaders, getSupabaseClient, orchestrateLead, safeLog } from "../shared-utils.ts";
 
 serve(async (req) => {
   // Handle CORS
@@ -23,7 +23,7 @@ serve(async (req) => {
 
     const lead = payload.record;
     
-    console.log(`Orchestrating lead: ${lead.id} (${lead.full_name})`);
+    safeLog(`[Orchestrate] Processing lead: ${lead.id}`);
     
     await orchestrateLead(supabase, lead);
 

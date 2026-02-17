@@ -1,0 +1,73 @@
+[
+    {
+        "id": "CRM-001",
+        "domain": [
+            5,
+            10
+        ],
+        "severity": "critical",
+        "title": "Webhook secret hardcodeado en código fuente",
+        "description": "ElevenLabs webhook secret está como fallback literal en elevenlabs_webhook/index.ts:4",
+        "file": "supabase/functions/elevenlabs_webhook/index.ts",
+        "line": 4,
+        "evidence_hash": "sha256:line4_contains_wsec_literal",
+        "impact": "Forja de webhooks → data injection en conversation_results, leads, lead_events",
+        "remediation_quick": "Eliminar fallback, usar solo Deno.env.get(), rotar secret",
+        "remediation_structural": "Secret scanning en CI (GitHub push protection)",
+        "effort_days": 3,
+        "regression_risk": "low",
+        "owner": "lead_developer",
+        "phase": "0-30d",
+        "status": "open",
+        "kb_ref": [
+            "KB_05",
+            "KB_11"
+        ]
+    },
+    {
+        "id": "CRM-002",
+        "domain": [
+            4
+        ],
+        "severity": "critical",
+        "title": "Twilio webhooks sin verificación de firma",
+        "description": "sms_webhook tiene verificación comentada; call_webhook no tiene ninguna verificación",
+        "file": "supabase/functions/sms_webhook/index.ts",
+        "line": 18,
+        "evidence_hash": "sha256:lines18-23_commented_out_verification",
+        "impact": "Cualquier actor puede enviar callbacks falsos modificando leads, call_events, sms_events",
+        "remediation_quick": "Descomentar verificación en sms_webhook, agregar en call_webhook",
+        "remediation_structural": "Middleware centralizado de verificación",
+        "effort_days": 3,
+        "regression_risk": "low",
+        "owner": "lead_developer",
+        "phase": "0-30d",
+        "status": "open",
+        "kb_ref": [
+            "KB_04"
+        ]
+    },
+    {
+        "id": "CRM-003",
+        "domain": [
+            11
+        ],
+        "severity": "critical",
+        "title": "PII en logs de producción sin masking",
+        "description": "47+ console.log con teléfonos, emails, payloads completos en edge functions",
+        "file": "supabase/functions/shared-utils.ts",
+        "line": 264,
+        "evidence_hash": "sha256:47_console_log_instances_with_pii",
+        "impact": "PII de clientes en logs accesibles → violación GDPR/CCPA",
+        "remediation_quick": "Sanitizar logs: solo IDs, últimos 4 dígitos teléfono",
+        "remediation_structural": "Logger estructurado con field masks",
+        "effort_days": 3,
+        "regression_risk": "low",
+        "owner": "lead_developer",
+        "phase": "0-30d",
+        "status": "open",
+        "kb_ref": [
+            "KB_12"
+        ]
+    }
+]

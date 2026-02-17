@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { corsHeaders, getSupabaseClient, verifyTwilioSignature } from "../shared-utils.ts";
+import { corsHeaders, getSupabaseClient, verifyTwilioSignature, safeLog } from "../shared-utils.ts";
 
 const CALL_REJECTED_THRESHOLD_SECONDS = 10;
 
@@ -12,15 +12,30 @@ serve(async (req) => {
     const supabase = getSupabaseClient();
     const contentType = req.headers.get('content-type');
     
-    let body;
+    let body: Record<string, any>;
     if (contentType?.includes('application/x-www-form-urlencoded')) {
       const formData = await req.formData();
-      body = Object.fromEntries(formData.entries());
+      body = Object.fromEntries(formData.entries()) as Record<string, any>;
     } else {
       body = await req.json();
     }
 
-    console.log('Call Webhook received:', body);
+    // CRM-002: Validate Twilio Signature (ENABLED)
+    const signature = req.headers.get('x-twilio-signature');
+    const authToken = Deno.env.get('SUPABASE_AUTH_SMS_TWILIO_AUTH_TOKEN') || Deno.env.get('SMS_TWILIO_AUTH_TOKEN') || '';
+    const requestUrl = req.url;
+
+    if (authToken && signature) {
+        const isValid = await verifyTwilioSignature(requestUrl, body, signature, authToken);
+        if (!isValid) {
+            console.warn('[Call Webhook] Invalid Twilio Signature. Rejecting request.');
+            return new Response('Forbidden', { status: 403, headers: corsHeaders });
+        }
+    } else if (!authToken) {
+        console.warn('[Call Webhook] Twilio auth token not configured. Signature verification skipped.');
+    }
+
+    safeLog('[Call Webhook] Received', { CallSid: body.CallSid, CallStatus: body.CallStatus });
 
     const { 
       CallSid, 

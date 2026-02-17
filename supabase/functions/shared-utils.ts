@@ -2,10 +2,93 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { crypto } from "https://deno.land/std@0.224.0/crypto/mod.ts";
 import { encodeHex } from "https://deno.land/std@0.224.0/encoding/hex.ts";
 
+// ── CORS Configuration (CRM-005) ──────────────────────────────────────
+// Allowed origins for browser-based requests.
+// Server-to-server calls (Meta, Twilio, Calendly, Brevo webhooks) don't send Origin headers.
+const ALLOWED_ORIGINS = [
+  'https://crm.financiegroup.com',
+  'https://financiegroup.com',
+  'https://www.financiegroup.com',
+  'http://localhost:5173',   // Vite dev
+  'http://localhost:3000',   // Alt dev
+];
+
+export function getCorsHeaders(req?: Request): Record<string, string> {
+  const origin = req?.headers?.get('origin') || '';
+  const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    'Access-Control-Allow-Origin': allowedOrigin,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-version',
+    'Access-Control-Allow-Methods': 'POST, GET, OPTIONS, PUT, DELETE',
+  };
+}
+
+// Legacy export for backward compatibility — defaults to production origin.
+// Edge functions that handle ONLY server-to-server webhooks can use this safely.
 export const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': 'https://crm.financiegroup.com',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-version',
   'Access-Control-Allow-Methods': 'POST, GET, OPTIONS, PUT, DELETE',
+};
+
+// ── Safe Logging Utility (CRM-003) ────────────────────────────────────
+// Masks PII (emails, phones, names) before logging to prevent data leaks.
+const PII_KEYS = ['phone', 'email', 'full_name', 'name', 'to', 'from', 'From', 'To', 'Body', 'phone_number'];
+
+function maskValue(key: string, value: unknown): unknown {
+  if (typeof value !== 'string') return value;
+  const lowerKey = key.toLowerCase();
+  if (lowerKey.includes('email')) return value.replace(/(.{2}).*(@.*)/, '$1***$2');
+  if (lowerKey.includes('phone') || lowerKey === 'to' || lowerKey === 'from' || lowerKey === 'sms')
+    return value.replace(/(\+?\d{1,3})\d{4,}(\d{2})/, '$1****$2');
+  if (lowerKey.includes('name') || lowerKey === 'full_name')
+    return value.length > 2 ? value.substring(0, 2) + '***' : '***';
+  return value;
+}
+
+function sanitizeObject(obj: unknown): unknown {
+  if (obj === null || obj === undefined) return obj;
+  if (typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) return obj.map(item => sanitizeObject(item));
+  const sanitized: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
+    if (PII_KEYS.some(piiKey => key.toLowerCase().includes(piiKey.toLowerCase()))) {
+      sanitized[key] = maskValue(key, value);
+    } else if (typeof value === 'object' && value !== null) {
+      sanitized[key] = sanitizeObject(value);
+    } else {
+      sanitized[key] = value;
+    }
+  }
+  return sanitized;
+}
+
+/**
+ * Safe logger that masks PII fields before writing to console.
+ * Use instead of console.log when logging objects that may contain user data.
+ */
+export function safeLog(message: string, data?: unknown): void {
+  if (data === undefined) {
+    console.log(message);
+    return;
+  }
+  if (typeof data === 'object' && data !== null) {
+    console.log(message, JSON.stringify(sanitizeObject(data)));
+  } else {
+    console.log(message, data);
+  }
+}
+
+/** Masks a phone number for safe logging: +1786****63 */
+export function maskPhone(phone: string): string {
+  if (!phone) return '[no-phone]';
+  return phone.replace(/(\+?\d{1,3})\d{4,}(\d{2})/, '$1****$2');
+}
+
+/** Masks an email for safe logging: bi***@gmail.com */
+export function maskEmail(email: string): string {
+  if (!email) return '[no-email]';
+  return email.replace(/(.{2}).*(@.*)/, '$1***$2');
 }
 
 export const US_STATE_TIMEZONES: Record<string, string> = {
@@ -261,7 +344,7 @@ export async function sendSms(to: string, body: string) {
     // Construct the status callback URL dynamically
     const statusCallback = supabaseUrl ? `${supabaseUrl}/functions/v1/sms_webhook` : undefined;
 
-    console.log(`Sending SMS to ${to}. StatusCallback: ${statusCallback}`);
+    safeLog(`[SMS] Sending to ${maskPhone(to)}. StatusCallback: ${statusCallback}`);
 
     const formData = new URLSearchParams();
     formData.append('To', to);
@@ -292,7 +375,7 @@ export async function sendSms(to: string, body: string) {
             throw new Error(data.message || 'Twilio failed');
         }
         
-        console.log('Twilio Success Response:', JSON.stringify(data));
+        safeLog('[SMS] Twilio Success Response', { sid: data.sid, status: data.status });
         // Twilio v2010 returns 'sid' (lowercase) usually, but we fallback just in case
         const sid = data.sid || data.Sid;
 
@@ -314,12 +397,20 @@ export async function sendEmail(lead: any) {
         return { success: false, error: 'Missing API Key' };
     }
 
-    const recipients = [
-        { email: "biancagarcia.finances@gmail.com", name: "Bianca Garcia" },
-        { email: "victorstudent2411@gmail.com", name: "Victor Student" },
-        { email: "biancamga1981@gmail.com", name: "Bianca MGA" },
-        { email: "contactus@financiegroup.com", name: "Financie Group" }
-    ];
+    // CRM-007: Recipients loaded from env var instead of hardcoded.
+    // Format: "Name1:email1@example.com,Name2:email2@example.com"
+    const recipientsRaw = Deno.env.get('NOTIFICATION_RECIPIENTS') || '';
+    let recipients: { email: string; name: string }[] = [];
+    if (recipientsRaw) {
+      recipients = recipientsRaw.split(',').map(entry => {
+        const [name, email] = entry.trim().split(':');
+        return { email: email?.trim() || name?.trim(), name: name?.trim() || '' };
+      }).filter(r => r.email);
+    }
+    if (recipients.length === 0) {
+      console.warn('[Email] NOTIFICATION_RECIPIENTS env var is empty or not set. No recipients to send to.');
+      return { success: false, error: 'No recipients configured' };
+    }
 
     const subject = `New Lead: ${lead.full_name} - ${lead.status || 'Nuevo'}`;
     
@@ -364,7 +455,7 @@ export async function sendEmail(lead: any) {
     </html>
     `;
 
-    console.log(`Sending email to ${recipients.length} recipients...`);
+    safeLog(`[Email] Sending notification to ${recipients.length} recipients`);
     try {
         const response = await fetch('https://api.brevo.com/v3/smtp/email', {
             method: 'POST',
@@ -388,7 +479,7 @@ export async function sendEmail(lead: any) {
         }
 
         const data = await response.json();
-        console.log('Email sent successfully:', data);
+        safeLog('[Email] Sent successfully', { messageId: data.messageId });
         return { success: true, messageId: data.messageId };
 
     } catch (error) {
@@ -414,7 +505,7 @@ export async function syncContactToBrevo(lead: any) {
         attributes['SMS'] = lead.phone.startsWith('+') ? lead.phone : `+${lead.phone.replace(/\D/g, '')}`;
     }
 
-    console.log(`Syncing contact ${lead.email} to Brevo CRM...`);
+    safeLog(`[Brevo] Syncing contact ${maskEmail(lead.email)}`);
     try {
         const response = await fetch('https://api.brevo.com/v3/contacts', {
             method: 'POST',
@@ -437,7 +528,7 @@ export async function syncContactToBrevo(lead: any) {
         }
 
         const data = await response.json();
-        console.log('Contact synced to Brevo successfully:', data);
+        safeLog('[Brevo] Contact synced successfully', { id: data.id });
         return { success: true, id: data.id };
 
     } catch (error) {
@@ -500,24 +591,27 @@ export async function orchestrateLead(supabase: any, lead: any) {
 
     if (!phone) return { success: false, error: 'No phone number' };
 
-    // Safety Check: Prevent calling self (avoid busy signal/infinite loop)
-    const agentNumber = '+17863212663'; // Known agent number from logs
+    // CRM-008: Agent number loaded from env var instead of hardcoded.
+    const agentNumber = Deno.env.get('AGENT_PHONE_NUMBER') || '';
+    if (!agentNumber) {
+        console.warn('[Orchestrate] AGENT_PHONE_NUMBER env var not set. Self-call check disabled.');
+    }
     const cleanedPhone = phone.replace(/\D/g, '');
     const cleanedAgent = agentNumber.replace(/\D/g, '');
     
-    if (cleanedPhone === cleanedAgent || (cleanedPhone.length === 10 && '1' + cleanedPhone === cleanedAgent)) {
-        console.warn(`[Orchestrate] Skipping lead ${leadId} because it matches Agent Number ${agentNumber}`);
+    if (cleanedAgent && (cleanedPhone === cleanedAgent || (cleanedPhone.length === 10 && '1' + cleanedPhone === cleanedAgent))) {
+        console.warn(`[Orchestrate] Skipping lead ${leadId} — matches agent number`);
         await supabase.from('lead_events').insert({
             lead_id: leadId,
             event_type: 'orchestration.skipped_self_call',
-            payload: { phone: phone, agent_number: agentNumber }
+            payload: { lead_id: leadId, reason: 'matches_agent_number' }
         });
         return { success: true, skipped: 'self_call' };
     }
 
 
     // 0. Send Email Notification (Check Result)
-    console.log(`Sending email notification for lead ${leadId}...`);
+    safeLog(`[Orchestrate] Sending email notification for lead ${leadId}`);
     // We await this to ensure the runtime doesn't kill the process before the request completes.
     const emailRes = await sendEmail(lead);
     
@@ -539,7 +633,7 @@ export async function orchestrateLead(supabase: any, lead: any) {
 
     // 0.1 Sync Lead to Brevo CRM Contacts
     if (lead.email) {
-        console.log(`Initiating Brevo CRM sync for lead ${leadId}...`);
+        safeLog(`[Orchestrate] Initiating Brevo CRM sync for lead ${leadId}`);
         const syncRes = await syncContactToBrevo(lead);
         
         await supabase.from('integration_logs').insert({
@@ -568,7 +662,7 @@ export async function orchestrateLead(supabase: any, lead: any) {
     await supabase.from('integration_logs').insert({
         provider: 'twilio',
         status: 'skipped',
-        message_safe: `Immediate SMS to ${phone} (DISABLED)`,
+        message_safe: `Immediate SMS (DISABLED)`,
         payload_ref: { sms_sid: 'SKIPPED', reason: 'verification_process' }
     });
 

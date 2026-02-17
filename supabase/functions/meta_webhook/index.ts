@@ -84,12 +84,27 @@ serve(async (req) => {
       }
 
       // Upsert by phone (deduplication)
-      // Check existing
-      const { data: existingLead } = await supabase
+      // CRM-006: Check existing by meta_lead_id FIRST (idempotency)
+      let existingLead = null;
+      
+      // Primary dedup: by meta_lead_id (exact match, prevents duplicate webhook processing)
+      const { data: leadByMetaId } = await supabase
         .from('leads')
         .select('*')
-        .eq('phone', phone)
-        .single();
+        .eq('meta_lead_id', leadgenId)
+        .maybeSingle();
+      
+      if (leadByMetaId) {
+        existingLead = leadByMetaId;
+      } else if (phone) {
+        // Secondary dedup: by phone number (prevents different leads with same phone)
+        const { data: leadByPhone } = await supabase
+          .from('leads')
+          .select('*')
+          .eq('phone', phone)
+          .maybeSingle();
+        existingLead = leadByPhone;
+      }
       
       let leadId;
       let eventType = 'lead.received.meta';
@@ -103,7 +118,6 @@ serve(async (req) => {
             meta_created_at: metaCreatedAt,
             signup_date: context.signup_date,
             signup_time: context.signup_time
-            // optionally update other fields?
         }).eq('id', leadId);
       } else {
         const { data: newLead, error: insertError } = await supabase.from('leads').insert({
@@ -118,7 +132,6 @@ serve(async (req) => {
             meta_created_at: metaCreatedAt,
             signup_date: context.signup_date,
             signup_time: context.signup_time
-            // Default stage? We let default value handle it or fetch the ID of "Lead Nuevo"
         }).select().single();
         
         if (insertError) throw insertError;

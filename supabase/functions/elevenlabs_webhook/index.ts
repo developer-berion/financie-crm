@@ -1,7 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { corsHeaders, getSupabaseClient, verifyElevenLabsSignature } from "../shared-utils.ts";
+import { corsHeaders, getSupabaseClient, verifyElevenLabsSignature, safeLog } from "../shared-utils.ts";
 
-const ELEVENLABS_WEBHOOK_SECRET = Deno.env.get('ELEVENLABS_WEBHOOK_SECRET') || 'wsec_fa658b2ea7fabead2bbb959c962d4121125a06d1638d390864864b751efc1ff5';
+// CRM-001: Secret loaded ONLY from env var. No fallback. Fail fast.
+const ELEVENLABS_WEBHOOK_SECRET = Deno.env.get('ELEVENLABS_WEBHOOK_SECRET');
+if (!ELEVENLABS_WEBHOOK_SECRET) {
+  console.error('[FATAL] ELEVENLABS_WEBHOOK_SECRET env var is not set. Webhook will reject all requests.');
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -9,12 +13,16 @@ serve(async (req) => {
   }
 
   try {
+    if (!ELEVENLABS_WEBHOOK_SECRET) {
+      return new Response('Server misconfigured: missing webhook secret', { status: 500 });
+    }
+
     const supabase = getSupabaseClient();
     const rawBody = await req.text();
     const body = JSON.parse(rawBody);
     const signature = req.headers.get('elevenlabs-signature');
 
-    console.log('ElevenLabs Webhook received:', body);
+    safeLog('[ElevenLabs] Webhook received', { type: body.type, call_id: body.call_id });
 
     // 1. Validate Signature
     if (signature && !(await verifyElevenLabsSignature(rawBody, signature, ELEVENLABS_WEBHOOK_SECRET))) {

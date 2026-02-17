@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { corsHeaders, getSupabaseClient, getLeadContext } from "../shared-utils.ts";
+import { corsHeaders, getSupabaseClient, getLeadContext, safeLog, maskPhone } from "../shared-utils.ts";
 
 serve(async (req) => {
     if (req.method === 'OPTIONS') {
@@ -46,21 +46,24 @@ serve(async (req) => {
         }
         // ---------------------------------
 
-        // 3. Get Secrets
+        // 3. Get Secrets (CRM-008: agentId from env var)
         const apiKey = Deno.env.get('ELEVENLABS_API_KEY');
-        const agentId = 'agent_4101kf6gqfgpfrganck3s1m0ap3v'; 
+        const agentId = Deno.env.get('ELEVENLABS_AGENT_ID');
         
         const phoneId = Deno.env.get('ELEVENLABS_PHONE_ID') || Deno.env.get('ELEVENLABS_PHONE_NUMBER_ID');
 
         if (!apiKey) {
             throw new Error('ELEVENLABS_API_KEY not configured');
         }
+        if (!agentId) {
+            throw new Error('ELEVENLABS_AGENT_ID not configured');
+        }
 
         // 4. Trigger Call via ElevenLabs API
         let rawPhone = lead.phone || '';
         let phone = rawPhone.replace(/\D/g, ''); 
         
-        console.log(`[MakeOutboundCall] LeadID: ${lead.id}, DB Phone: ${rawPhone}, Cleaned: ${phone}`);
+        safeLog(`[MakeOutboundCall] LeadID: ${lead.id}, Phone: ${maskPhone(rawPhone)}`);
 
         if (phone.length === 10) {
             phone = '1' + phone;
@@ -73,8 +76,7 @@ serve(async (req) => {
         // We know from logs it is '+17863212663' but we only have the Phone ID here.
         // We will just log heavily for now and maybe alert if it matches a known bad number.
         
-        console.log(`[MakeOutboundCall] Final Target Phone: ${formattedPhone}`);
-        console.log(`[MakeOutboundCall] Using Agent Phone ID: ${phoneId}`);
+        safeLog(`[MakeOutboundCall] Final Target: ${maskPhone(formattedPhone)}, AgentPhoneID: ${phoneId ? '[SET]' : '[MISSING]'}`);
 
         const payload = {
             agent_id: agentId,

@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { corsHeaders, getSupabaseClient, verifyTwilioSignature } from "../shared-utils.ts";
+import { corsHeaders, getSupabaseClient, verifyTwilioSignature, safeLog, maskPhone } from "../shared-utils.ts";
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -9,32 +9,35 @@ serve(async (req) => {
   try {
     const supabase = getSupabaseClient();
     
-    // 0. Validate Twilio Signature (Optional but recommended)
-    const signature = req.headers.get('x-twilio-signature');
-    const authToken = Deno.env.get('SUPABASE_AUTH_SMS_TWILIO_AUTH_TOKEN') || '';
-    const url = req.url; // May need adjustment if behind proxy
-    
-    // For now, we logging but proceed. In production, return 401 if invalid.
-    /*
-    if (signature && !(await verifyTwilioSignature(url, body, signature, authToken))) {
-        console.warn('Invalid Twilio Signature');
-        // return new Response('Forbidden', { status: 403 });
-    }
-    */
-
-    let body;
+    // 0. Parse body first (needed for signature verification)
+    let body: Record<string, any>;
     const contentType = req.headers.get('content-type') || '';
     if (contentType.includes('application/json')) {
         body = await req.json();
     } else {
         const formData = await req.formData();
-        body = {};
+        body = {} as Record<string, any>;
         formData.forEach((value, key) => {
             body[key] = value;
         });
     }
 
-    console.log('SMS Webhook received:', body);
+    // CRM-002: Validate Twilio Signature (ENABLED)
+    const signature = req.headers.get('x-twilio-signature');
+    const authToken = Deno.env.get('SUPABASE_AUTH_SMS_TWILIO_AUTH_TOKEN') || Deno.env.get('SMS_TWILIO_AUTH_TOKEN') || '';
+    const requestUrl = req.url;
+    
+    if (authToken && signature) {
+        const isValid = await verifyTwilioSignature(requestUrl, body, signature, authToken);
+        if (!isValid) {
+            console.warn('[SMS Webhook] Invalid Twilio Signature. Rejecting request.');
+            return new Response('Forbidden', { status: 403, headers: corsHeaders });
+        }
+    } else if (!authToken) {
+        console.warn('[SMS Webhook] Twilio auth token not configured. Signature verification skipped.');
+    }
+
+    safeLog('[SMS Webhook] Received', { MessageSid: body.MessageSid, SmsStatus: body.SmsStatus || body.MessageStatus });
 
     const { 
       MessageSid, 
