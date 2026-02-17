@@ -23,9 +23,10 @@ import type { Lead, PipelineStage } from '../types';
 import DealCard from '../components/pipeline/DealCard';
 import KanbanHeader from '../components/pipeline/KanbanHeader';
 import { toast } from 'sonner';
+import NoteModal from '../components/NoteModal';
 
 // Column Component
-function KanbanColumn({ stage, leads }: { stage: PipelineStage; leads: Lead[] }) {
+function KanbanColumn({ stage, leads, onAddNote }: { stage: PipelineStage; leads: Lead[]; onAddNote: (lead: Lead) => void }) {
     const { setNodeRef } = useDroppable({ id: stage.id });
 
     return (
@@ -35,7 +36,7 @@ function KanbanColumn({ stage, leads }: { stage: PipelineStage; leads: Lead[] })
             <div ref={setNodeRef} className="flex-1 overflow-y-auto min-h-[100px] px-1 pb-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
                 <SortableContext items={leads.map(l => l.id)} strategy={verticalListSortingStrategy}>
                     {leads.map((lead) => (
-                        <DealCard key={lead.id} lead={lead} />
+                        <DealCard key={lead.id} lead={lead} onAddNote={onAddNote} />
                     ))}
                 </SortableContext>
                 {leads.length === 0 && (
@@ -52,6 +53,8 @@ export default function Pipeline() {
     const [stages, setStages] = useState<PipelineStage[]>([]);
     const [leads, setLeads] = useState<Lead[]>([]);
     const [activeId, setActiveId] = useState<string | null>(null);
+    const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
+    const [selectedLeadForNote, setSelectedLeadForNote] = useState<Lead | null>(null);
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -153,6 +156,26 @@ export default function Pipeline() {
         }
     }
 
+    const handleAddNote = (lead: Lead) => {
+        setSelectedLeadForNote(lead);
+        setIsNoteModalOpen(true);
+    };
+
+    const handleNoteSaved = () => {
+        // Optionally refresh or log, but not strictly needed for pipeline view unless we show note count
+        // Just toast is fine
+        toast.success('Nota guardada');
+    };
+
+    const getNoteContext = () => {
+        if (!selectedLeadForNote) return undefined;
+        const stage = stages.find(s => s.id === selectedLeadForNote.stage_id);
+        if (stage && stage.name.toLowerCase().startsWith('contacto')) {
+            return stage.name;
+        }
+        return undefined;
+    };
+
     return (
         <div className="h-[calc(100vh-6rem)] flex flex-col">
             <div className="flex-none px-6 py-4 flex justify-between items-center bg-white border-b border-gray-100">
@@ -173,6 +196,7 @@ export default function Pipeline() {
                                 key={stage.id}
                                 stage={stage}
                                 leads={leads.filter(l => l.stage_id === stage.id)}
+                                onAddNote={handleAddNote}
                             />
                         ))}
 
@@ -189,6 +213,14 @@ export default function Pipeline() {
                     </DndContext>
                 </div>
             </div>
+
+            <NoteModal
+                isOpen={isNoteModalOpen}
+                onClose={() => setIsNoteModalOpen(false)}
+                leadId={selectedLeadForNote?.id || ''}
+                onNoteSaved={handleNoteSaved}
+                context={getNoteContext()}
+            />
         </div>
     );
 }

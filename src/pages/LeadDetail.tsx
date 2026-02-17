@@ -6,10 +6,12 @@ import Modal from '../components/Modal';
 import NoteModal from '../components/NoteModal';
 import MetricBar from '../components/MetricBar';
 import QualificationPanel from '../components/QualificationPanel';
-import ContactAttemptsPanel from '../components/ContactAttemptsPanel';
-import { Phone, Clock, MessageCircle, Plus, FileText, Edit3, Layout, Info, ExternalLink } from 'lucide-react';
+
+import { Phone, Clock, MessageCircle, Plus, FileText, Edit3, Layout, Info, ExternalLink, Calendar } from 'lucide-react';
 import { cn, formatLeadTime } from '../lib/utils';
 import { toast } from 'sonner';
+import { PopupModal, useCalendlyEventListener } from "react-calendly";
+import AppointmentsList from '../components/AppointmentsList';
 // import type { Database } from '../types/supabase'; // Type definition not found, using explicit types or any where needed
 
 // Simple interface for PipelineStage to avoid dependency on missing types file
@@ -23,6 +25,7 @@ interface PipelineStage {
 
 export default function LeadDetail() {
     const { id } = useParams<{ id: string }>();
+    const [isCalendlyOpen, setIsCalendlyOpen] = useState(false);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [lead, setLead] = useState<any>(null);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -98,12 +101,33 @@ export default function LeadDetail() {
             .maybeSingle();
 
         if (convData) setConversation(convData);
-
         setLoading(false);
     }
 
+    const rootElement = document.getElementById("root");
+
+    useCalendlyEventListener({
+        onEventScheduled: async (_e) => {
+            setIsCalendlyOpen(false);
+            toast.success('Reunión agendada con éxito');
+            toast.loading('Sincronizando con Calendly...', { id: 'sync-calendly' });
+
+            try {
+                // Trigger Sync
+                await supabase.functions.invoke('sync_calendly_events');
+
+                // Refresh data
+                await fetchLeadData();
+                toast.success('Sincronización completada', { id: 'sync-calendly' });
+            } catch (error) {
+                console.error('Sync failed', error);
+                toast.error('Error al sincronizar, intenta manualmente', { id: 'sync-calendly' });
+            }
+        },
+    });
+
     const [initialNoteTitle, setInitialNoteTitle] = useState('');
-    const [pendingOutcome, setPendingOutcome] = useState<{ outcome: string, nextAttempt: number } | null>(null);
+
 
     const handleUpdateLead = async (field: string, value: any) => {
         try {
@@ -134,83 +158,27 @@ export default function LeadDetail() {
         }
     };
 
-    const handleUpdateAttempts = async (newAttempts: number) => {
-        try {
-            const now = new Date().toISOString();
-            const { error } = await supabase
-                .from('leads')
-                .update({
-                    contact_attempts: newAttempts,
-                    last_contact_attempt: now
-                })
-                .eq('id', id);
 
-            if (error) throw error;
-
-            // Optimistic update
-            setLead((prev: any) => ({
-                ...prev,
-                contact_attempts: newAttempts,
-                last_contact_attempt: now
-            }));
-
-        } catch (error) {
-            console.error('Error updating attempts:', error);
-            toast.error('Error al actualizar intentos');
-        }
-    };
 
     const handleNewNote = () => {
         setSelectedNote(null);
         setInitialNoteTitle('');
-        setPendingOutcome(null);
         setIsNoteModalOpen(true);
     };
 
     const handleEditNote = (note: any) => {
         setSelectedNote(note);
         setInitialNoteTitle(note.title || '');
-        setPendingOutcome(null);
+        // setPendingOutcome(null); // Removed as state was deleted
         setIsNoteModalOpen(true);
     };
 
-    const handleOutcomeSelected = (outcome: string, title: string, nextAttempt: number) => {
-        setSelectedNote(null);
-        setInitialNoteTitle(title);
-        setPendingOutcome({ outcome, nextAttempt });
-        setIsNoteModalOpen(true);
-    };
+
 
     const handleNoteSaved = async () => {
         await fetchLeadData();
-
-        // Process pending outcome if exists
-        if (pendingOutcome) {
-            const { outcome, nextAttempt } = pendingOutcome;
-
-            // 1. Log event (Note is already saved by modal, but we might want to link them? 
-            //    Actually handleLogOutcome previously saved a NOTE too. 
-            //    Wait, NoteModal SAVES the note. So we just need to log the EVENT and UPDATE ATTEMPTS.
-
-            await supabase.from('lead_events').insert({
-                lead_id: id,
-                event_type: 'contact.attempt',
-                payload: { outcome, attempt: nextAttempt }
-            });
-
-            // 2. Update attempts if it's not a success stop or if we want to track it
-            // If "answered", usually we STOP counting or mark as contacted. 
-            // User requirement: "Intento X - Contestó".
-            // If answered, do we increment? 
-            // If they answered on attempt 2, then contact_attempts becomes 2. 
-            // The panel calculates "nextAttempt" as current + 1. 
-            // So yes, we update to that number.
-
-            await handleUpdateAttempts(nextAttempt);
-
-            setPendingOutcome(null);
-        }
     };
+
 
 
 
@@ -222,14 +190,27 @@ export default function LeadDetail() {
         return 'bg-gray-50 text-gray-600 border-gray-100';
     };
 
+    const getStageColorStyle = (stageName: string = '') => {
+        const lowerName = stageName.toLowerCase();
+        if (lowerName.includes('contacto 1')) return 'bg-emerald-100 text-emerald-800 border-emerald-200';
+        if (lowerName.includes('contacto 2')) return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+        if (lowerName.includes('contacto 3')) return 'bg-red-100 text-red-800 border-red-200';
+        return 'bg-gray-100 text-gray-600 border-gray-200'; // Default
+    };
+
+
     if (loading) return <div>Cargando...</div>;
     if (!lead) return <div>Lead no encontrado</div>;
 
     // Use stage_id directly as source of truth
     const currentStageId = lead.stage_id;
     // Handle both array and object formats due to join quirks
-    const currentPipelineStageId = lead.stage_id;
-    const isContactStage = currentPipelineStageId === '6f9d1920-6ed2-4c0c-8cb4-4979e1460ce4';
+    // const currentPipelineStageId = lead.stage_id; // Redundant
+    // const isContactStage = currentPipelineStageId === '6f9d1920-6ed2-4c0c-8cb4-4979e1460ce4'; // Removed
+
+    // Find current stage name for color logic
+    const currentStageName = stages.find(s => s.id === currentStageId)?.name || '';
+
 
     return (
         <div className="max-w-7xl mx-auto pb-20 font-sans text-brand-text bg-gray-50 min-h-screen">
@@ -257,7 +238,10 @@ export default function LeadDetail() {
                                         <select
                                             value={currentStageId || ''}
                                             onChange={(e) => handleUpdateLead('stage_id', e.target.value)}
-                                            className="appearance-none bg-gray-100 border-transparent text-xs font-bold text-gray-600 rounded-full px-3 py-1 pr-7 cursor-pointer hover:bg-gray-200 hover:text-gray-800 transition-all focus:ring-0 focus:border-brand-accent/50"
+                                            className={cn(
+                                                "appearance-none text-xs font-bold rounded-full px-3 py-1 pr-7 cursor-pointer transition-all focus:ring-0 focus:border-brand-accent/50 border",
+                                                getStageColorStyle(currentStageName)
+                                            )}
                                         >
                                             <option value="" disabled>Sin etapa</option>
                                             {stages.map(stage => (
@@ -266,7 +250,7 @@ export default function LeadDetail() {
                                                 </option>
                                             ))}
                                         </select>
-                                        <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none text-gray-400 font-bold">
+                                        <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none text-gray-500 font-bold opacity-50">
                                             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
                                         </div>
                                     </div>
@@ -311,6 +295,13 @@ export default function LeadDetail() {
                                     <MessageCircle className="w-5 h-5" />
                                     <span className="hidden sm:inline">WhatsApp</span>
                                 </a>
+                                <button
+                                    onClick={() => setIsCalendlyOpen(true)}
+                                    className="flex items-center justify-center gap-2 px-5 py-3 bg-white text-gray-700 border border-gray-200 rounded-xl font-bold shadow-sm hover:bg-gray-50 hover:text-brand-primary hover:border-brand-primary/30 transition-all active:scale-95"
+                                >
+                                    <Calendar className="w-5 h-5" />
+                                    <span className="hidden sm:inline">Agendar</span>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -332,14 +323,7 @@ export default function LeadDetail() {
                     <div className="lg:col-span-8 space-y-8">
 
                         {/* Contact Strategy Should be here */}
-                        {(isContactStage || (lead.contact_attempts && lead.contact_attempts > 0)) && (
-                            <ContactAttemptsPanel
-                                attempts={lead.contact_attempts || 0}
-                                lastAttempt={lead.last_contact_attempt}
-                                onUpdate={handleUpdateAttempts}
-                                onOutcomeSelected={handleOutcomeSelected}
-                            />
-                        )}
+
 
                         {/* Qualification Panel */}
                         <QualificationPanel
@@ -416,6 +400,9 @@ export default function LeadDetail() {
 
                     {/* RIGHT COLUMN - HISTORY ZONE (30%) */}
                     <div className="lg:col-span-4 space-y-6">
+
+                        {/* Appointments List (Auto-Hides if empty) */}
+                        <AppointmentsList events={events} />
 
                         {/* Timeline */}
                         <div className="bg-white rounded-2xl shadow-sm border border-brand-border p-6 h-[500px] flex flex-col">
@@ -514,6 +501,18 @@ export default function LeadDetail() {
                     </div>
                 </div>
             </Modal>
+
+            {/* Calendly Modal */}
+            <PopupModal
+                url="https://calendly.com/biancafinanzas"
+                onModalClose={() => setIsCalendlyOpen(false)}
+                open={isCalendlyOpen}
+                rootElement={rootElement!}
+                prefill={{
+                    email: lead.email || '',
+                    name: lead.full_name || '',
+                }}
+            />
         </div>
     );
 }

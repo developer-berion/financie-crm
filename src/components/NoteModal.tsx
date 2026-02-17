@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import Modal from './Modal';
-import { Save, History, Archive, ArchiveRestore } from 'lucide-react';
+import { Save, History, Archive, ArchiveRestore, Tag } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -31,9 +31,10 @@ interface NoteModalProps {
     onNoteSaved: () => void;
     initialTitle?: string;
     initialContent?: string;
+    context?: string; // e.g. "Contacto 1", "Contacto 2"
 }
 
-export default function NoteModal({ isOpen, onClose, note, leadId, onNoteSaved, initialTitle = '', initialContent = '' }: NoteModalProps) {
+export default function NoteModal({ isOpen, onClose, note, leadId, onNoteSaved, initialTitle = '', initialContent = '', context }: NoteModalProps) {
     const [title, setTitle] = useState('');
     const [content, setContent] = useState('');
     const [loading, setLoading] = useState(false);
@@ -47,12 +48,17 @@ export default function NoteModal({ isOpen, onClose, note, leadId, onNoteSaved, 
                 setContent(note.content);
                 fetchVersions(note.id);
             } else {
-                setTitle(initialTitle);
+                // If we have a context, we can suggest a title if not provided
+                let suggestedTitle = initialTitle;
+                if (!suggestedTitle && context) {
+                    suggestedTitle = `Resumen ${context}`;
+                }
+                setTitle(suggestedTitle);
                 setContent(initialContent);
                 setVersions([]);
             }
         }
-    }, [isOpen, note, initialTitle, initialContent]);
+    }, [isOpen, note, initialTitle, initialContent, context]);
 
     const fetchVersions = async (noteId: string) => {
         setLoadingVersions(true);
@@ -106,6 +112,8 @@ export default function NoteModal({ isOpen, onClose, note, leadId, onNoteSaved, 
 
             } else {
                 // Creating new note
+                // If we have context, we might want to append it to content or just title?
+                // For now, title is suggested.
                 const { error } = await supabase
                     .from('notes')
                     .insert({
@@ -174,7 +182,17 @@ export default function NoteModal({ isOpen, onClose, note, leadId, onNoteSaved, 
         <Modal
             isOpen={isOpen}
             onClose={onClose}
-            title={note ? "Editar Nota" : "Nueva Nota"}
+            title={
+                <div className="flex items-center gap-3">
+                    <span>{note ? "Editar Nota" : "Nueva Nota"}</span>
+                    {context && (
+                        <span className="flex items-center gap-1.5 px-3 py-1 bg-brand-accent/10 border border-brand-accent/20 rounded-full text-xs font-bold text-brand-accent uppercase tracking-wide">
+                            <Tag className="w-3 h-3" />
+                            {context}
+                        </span>
+                    )}
+                </div>
+            }
         >
             <div className="space-y-6">
                 <div className="space-y-4">

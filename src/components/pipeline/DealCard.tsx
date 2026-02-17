@@ -1,6 +1,6 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Phone, MessageCircle, FileText, Clock } from 'lucide-react';
+import { Phone, MessageCircle, FileText, Clock, StickyNote } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import type { Lead } from '../../types';
 import { cn } from '../../lib/utils';
@@ -9,9 +9,10 @@ import { es } from 'date-fns/locale';
 
 interface DealCardProps {
     lead: Lead;
+    onAddNote?: (lead: Lead) => void;
 }
 
-export default function DealCard({ lead }: DealCardProps) {
+export default function DealCard({ lead, onAddNote }: DealCardProps) {
     const {
         attributes,
         listeners,
@@ -47,6 +48,11 @@ export default function DealCard({ lead }: DealCardProps) {
         e.stopPropagation();
         const number = lead.phone.replace(/\D/g, '');
         window.open(`https://wa.me/${number}`, '_blank');
+    };
+
+    const handleAddNote = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        onAddNote?.(lead);
     };
 
     return (
@@ -95,26 +101,24 @@ export default function DealCard({ lead }: DealCardProps) {
                         <Clock className="w-3 h-3" />
                         <span>{formatDistanceToNow(lastActivity, { addSuffix: true, locale: es })}</span>
                     </div>
-                    <div className="flex items-center justify-between text-[11px] text-gray-500 font-medium">
-                        <span>{lead.source}</span>
-                        {lead.stage_id === '6f9d1920-6ed2-4c0c-8cb4-4979e1460ce4' && (
-                            <div className="flex gap-1">
-                                {[1, 2, 3].map(attempt => (
-                                    <div key={attempt} className={cn(
-                                        "w-2 h-2 rounded-full border",
-                                        (lead.contact_attempts || 0) >= attempt ? "bg-orange-400 border-orange-500" : "bg-gray-100 border-gray-300"
-                                    )} title={`Intento ${attempt}`} />
-                                ))}
-                            </div>
-                        )}
-                    </div>
+
                     {/* Actions (Revealed on Hover) */}
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        {onAddNote && (
+                            <button
+                                onClick={handleAddNote}
+                                onPointerDown={e => e.stopPropagation()}
+                                className="p-1.5 rounded bg-yellow-50 text-yellow-600 hover:bg-yellow-100 hover:text-yellow-700"
+                                title="Agregar Nota"
+                            >
+                                <StickyNote className="w-3.5 h-3.5" />
+                            </button>
+                        )}
                         <button
                             onClick={handleCall}
                             onPointerDown={e => e.stopPropagation()}
                             className="p-1.5 rounded bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700"
-                            title="Llemar"
+                            title="Llamar"
                         >
                             <Phone className="w-3.5 h-3.5" />
                         </button>

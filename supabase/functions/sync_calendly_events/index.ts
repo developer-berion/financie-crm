@@ -106,33 +106,19 @@ serve(async (req) => {
 
             if (!email) continue
 
-            // 4. Find matching Agent in Supabase
-            const { data: agents, error: searchError } = await supabase
+            // --- 4. Match AGENTS ---
+            const { data: agents } = await supabase
                 .from('agentes')
                 .select('id, calendly_events')
                 .eq('email', email)
             
-            if (searchError) {
-                console.error(`Error searching agent by email ${email}:`, searchError)
-                continue
-            }
-
             if (agents && agents.length > 0) {
-                matchCount++
                 const agent = agents[0]
-                
-                // 5. Update Agent record
-                // Check if event already exists in the array to avoid duplicates
                 const currentEvents = Array.isArray(agent.calendly_events) ? agent.calendly_events : []
                 const eventExists = currentEvents.some((e: any) => e.uri === event.uri)
 
                 if (!eventExists) {
-                    // Enrich event object with invitee data if needed, or just store the event + invitee info
-                    const eventToStore = {
-                        ...event,
-                        invitee_details: invitee // Store invitee specific answers/name
-                    }
-
+                    const eventToStore = { ...event, invitee_details: invitee }
                     const newEvents = [...currentEvents, eventToStore]
 
                     const { error: updateError } = await supabase
@@ -143,13 +129,63 @@ serve(async (req) => {
                         })
                         .eq('id', agent.id)
                     
-                    if (updateError) {
-                        console.error(`Failed to update agent ${agent.id}:`, updateError)
-                    } else {
+                    if (updateError) console.error(`Failed to update agent ${agent.id}:`, updateError)
+                    else {
                         console.log(`Updated agent ${agent.id} with new event ${event.uri}`)
                         updatedCount++
                     }
                 }
+                matchCount++
+            }
+
+            // --- 5. Match LEADS ---
+            // Only process if status is active (or maybe we want canceled too? let's stick to all and filter in UI)
+            // Actually API query was filtered by status=active. So these are active events.
+            
+            const { data: leads } = await supabase
+                .from('leads')
+                .select('id')
+                .eq('email', email)
+
+            if (leads && leads.length > 0) {
+                for (const lead of leads) {
+                    // Check if event already exists in lead_events
+                    // We assume payload->>'uri' holds the ID
+                    const { data: existingEvents } = await supabase
+                        .from('lead_events')
+                        .select('id')
+                        .eq('lead_id', lead.id)
+                        .eq('event_type', 'appointment.scheduled')
+                        .filter('payload->uri', 'eq', event.uri) 
+                    
+                    // Note: Supabase JSON filtering syntax might vary. using .contains is safer for some JSONB
+                    // But let's fetch checking overlap. Since we don't have a unique constraint on (lead_id, uri) in DB (yet),
+                    // we must check manually.
+                    
+                    if (!existingEvents || existingEvents.length === 0) {
+                        const payload = {
+                            ...event,
+                            invitee_details: invitee,
+                            provider: 'calendly'
+                        }
+
+                        const { error: insertError } = await supabase
+                            .from('lead_events')
+                            .insert({
+                                lead_id: lead.id,
+                                event_type: 'appointment.scheduled',
+                                payload: payload
+                            })
+
+                        if (insertError) {
+                            console.error(`Failed to insert lead_event for lead ${lead.id}:`, insertError)
+                        } else {
+                            console.log(`Inserted appointment for lead ${lead.id}`)
+                            updatedCount++
+                        }
+                    }
+                }
+                matchCount++
             }
         }
     }
