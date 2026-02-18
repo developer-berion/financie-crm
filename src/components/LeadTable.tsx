@@ -11,7 +11,7 @@ interface LeadTableProps {
     title?: string;
 }
 
-export default function LeadTable({ leads, title }: LeadTableProps) {
+export default function LeadTable({ leads }: LeadTableProps) {
     const [currentPage, setCurrentPage] = useState(1);
     const [sortColumn, setSortColumn] = useState<'name' | 'stage' | 'created_at' | null>('created_at');
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');

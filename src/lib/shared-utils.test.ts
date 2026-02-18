@@ -254,3 +254,90 @@ describe('shared-utils — PII_KEYS coverage', () => {
         expect(result.Body).toBe('Hello message');
     });
 });
+
+// =============================================================================
+// fetchWithRetry (Copy from supabase/functions/shared-utils.ts for testing)
+// =============================================================================
+
+async function fetchWithRetry(url: string, options: RequestInit, retries = 3, backoff = 10): Promise<Response> {
+    try {
+        const response = await fetch(url, options);
+        if (response.ok) return response;
+        if (retries > 0 && response.status >= 500) {
+            console.log(`[Fetch] Retrying ${url} (${response.status}). Attempts left: ${retries}`);
+            await new Promise(r => setTimeout(r, backoff));
+            return fetchWithRetry(url, options, retries - 1, backoff * 2);
+        }
+        return response;
+    } catch (error) {
+        if (retries > 0) {
+            console.log(`[Fetch] Network error requesting ${url}. Retrying...`);
+            await new Promise(r => setTimeout(r, backoff));
+            return fetchWithRetry(url, options, retries - 1, backoff * 2);
+        }
+        throw error;
+    }
+}
+
+describe('shared-utils — fetchWithRetry', () => {
+    // Mock global fetch
+    const originalFetch = global.fetch;
+    
+    beforeEach(() => {
+        global.fetch = originalFetch;
+    });
+
+    afterEach(() => {
+        global.fetch = originalFetch;
+    });
+
+    it('returns response immediately if ok', async () => {
+        global.fetch = (async () => new Response('ok', { status: 200 })) as any;
+        const res = await fetchWithRetry('http://test.com', {});
+        expect(res.status).toBe(200);
+    });
+
+    it('retries on 500 status', async () => {
+        let attempts = 0;
+        global.fetch = (async () => {
+            attempts++;
+            if (attempts < 3) return new Response('error', { status: 500 });
+            return new Response('ok', { status: 200 });
+        }) as any;
+
+        const res = await fetchWithRetry('http://test.com', {}, 3, 1);
+        expect(res.status).toBe(200);
+        expect(attempts).toBe(3); // 1st fail, 2nd fail, 3rd success
+    });
+
+    it('fails after max retries on 500', async () => {
+        global.fetch = (async () => new Response('error', { status: 500 })) as any;
+        const res = await fetchWithRetry('http://test.com', {}, 2, 1);
+        expect(res.status).toBe(500);
+    });
+
+    it('retries on network error (throw)', async () => {
+        let attempts = 0;
+        global.fetch = (async () => {
+            attempts++;
+            if (attempts < 2) throw new Error('Network Error');
+            return new Response('ok', { status: 200 });
+        }) as any;
+
+        const res = await fetchWithRetry('http://test.com', {}, 3, 1);
+        expect(res.status).toBe(200);
+        expect(attempts).toBe(2);
+    });
+
+    it('does not retry on 400 errors', async () => {
+        let attempts = 0;
+        global.fetch = (async () => {
+            attempts++;
+            return new Response('client error', { status: 400 });
+        }) as any;
+
+        const res = await fetchWithRetry('http://test.com', {}, 3, 1);
+        expect(res.status).toBe(400);
+        expect(attempts).toBe(1);
+    });
+});

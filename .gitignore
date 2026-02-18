@@ -28,4 +28,8 @@ key.json
 *.key
 *.pem
 *.secret
+temp_env.txt
+debug_*.js
+check_*.js
+
 

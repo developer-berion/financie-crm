@@ -403,6 +403,31 @@ export async function sendSms(to: string, body: string) {
 
 
 
+/**
+ * Safe fetch wrapper with exponential backoff retry logic.
+ * Retries on network errors and 5xx status codes.
+ * Default: 3 attempts.
+ */
+async function fetchWithRetry(url: string, options: RequestInit, retries = 3, backoff = 300): Promise<Response> {
+    try {
+        const response = await fetch(url, options);
+        if (response.ok) return response;
+        if (retries > 0 && response.status >= 500) {
+            safeLog(`[Fetch] Retrying ${url} (${response.status}). Attempts left: ${retries}`);
+            await new Promise(r => setTimeout(r, backoff));
+            return fetchWithRetry(url, options, retries - 1, backoff * 2);
+        }
+        return response;
+    } catch (error) {
+        if (retries > 0) {
+            safeLog(`[Fetch] Network error requesting ${url}. Retrying...`);
+            await new Promise(r => setTimeout(r, backoff));
+            return fetchWithRetry(url, options, retries - 1, backoff * 2);
+        }
+        throw error;
+    }
+}
+
 interface LeadContext {
     id: string;
     full_name: string;
@@ -481,7 +506,7 @@ export async function sendEmail(lead: LeadContext) {
 
     safeLog(`[Email] Sending notification to ${recipients.length} recipients`);
     try {
-        const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+        const response = await fetchWithRetry('https://api.brevo.com/v3/smtp/email', {
             method: 'POST',
             headers: {
                 'accept': 'application/json',
@@ -531,7 +556,7 @@ export async function syncContactToBrevo(lead: LeadContext) {
 
     safeLog(`[Brevo] Syncing contact ${maskEmail(lead.email)}`);
     try {
-        const response = await fetch('https://api.brevo.com/v3/contacts', {
+        const response = await fetchWithRetry('https://api.brevo.com/v3/contacts', {
             method: 'POST',
             headers: {
                 'accept': 'application/json',

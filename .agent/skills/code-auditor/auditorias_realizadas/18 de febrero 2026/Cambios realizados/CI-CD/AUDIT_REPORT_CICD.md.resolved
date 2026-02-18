@@ -1,0 +1,44 @@
+# CI/CD Audit Report
+**Date:** 2026-02-18
+**Auditor:** Agent (CI/CD Release Engineer Skill)
+**Target System:** Financie CRM (Staging/Prod)
+
+## 1. Executive Summary
+The current system lacks a formal automated CI/CD pipeline. Deployments are likely triggered manually or via basic Vercel Git integration without quality gates. This poses a **High Risk** of breaking production with undetected regressions.
+
+**Risk Score:** HIGH (No automated testing safeguards in place previously; basic smoke test just added).
+
+## 2. Current State Analysis
+*   **Repo Structure:** Monorepo (Frontend + Supabase Functions).
+*   **Branches:**
+    *   `staging` (Active development, connected to Staging Env).
+    *   `master` (Production, connected to Prod Env).
+*   **CI Platform:** None configured (GitHub Actions workflows directory is empty).
+*   **CD Platform:** Vercel (Git Integration implied).
+*   **Quality Gates:** None enforced.
+*   **Tests:** `test:smoke` script explicitly created in previous step (TypeScript Check).
+
+## 3. Required Implementation (Remediation Plan)
+To meet the "Identical Environments" and "Safe Promotion" goal:
+
+### A. Pipeline Blueprint (GitHub Actions)
+We will implement a `ci.yml` workflow that acts as a **Quality Gate**.
+*   **Trigger:**
+    *   Push to `staging` (Continuous Integration).
+    *   Pull Request to `master` (Release Gate).
+*   **Jobs:**
+    *   `quality-check`: Runs `npm run test:smoke` (Frontend & Backend Type Verification).
+
+### B. Deployment Strategy (Vercel)
+*   User continues to use Vercel's "Push to Deploy" feature.
+*   **Crucial Control:** The `master` branch must be **Protected**.
+    *   *Action Required (Manual):* User must enable "Require status checks to pass before merging" in GitHub Settings for `master`.
+
+### C. Promotion Workflow
+1.  Dev commits to `staging`. -> **CI Runs** -> **Vercel Deploys to Staging**.
+2.  Dev verifies Staging URL.
+3.  Dev opens PR `staging` -> `master`. -> **CI Runs**.
+4.  Dev merges PR. -> **Vercel Deploys to Production**.
+
+## 4. Artifacts to Generate
+*   `.github/workflows/ci.yml`: The CI configuration file.

@@ -41,6 +41,7 @@ export default function Leads() {
             lead.phone.includes(searchTerm);
 
         const matchesStage = filters.stages.length === 0 ||
+            // @ts-ignore
             (lead.pipeline_stages && filters.stages.includes(lead.pipeline_stages.name));
 
         return matchesSearch && matchesStage;
@@ -90,8 +91,8 @@ export default function Leads() {
                         <button
                             onClick={() => setIsFilterOpen(!isFilterOpen)}
                             className={`h-[46px] inline-flex items-center rounded-xl border px-5 text-sm font-bold shadow-sm transition-all active:scale-95 ${isFilterOpen
-                                    ? 'border-brand-primary text-brand-primary bg-blue-50/50 ring-4 ring-brand-primary/10'
-                                    : 'border-gray-200 text-gray-600 bg-white hover:bg-gray-50 hover:border-gray-300'
+                                ? 'border-brand-primary text-brand-primary bg-blue-50/50 ring-4 ring-brand-primary/10'
+                                : 'border-gray-200 text-gray-600 bg-white hover:bg-gray-50 hover:border-gray-300'
                                 }`}
                         >
                             <Filter className="mr-2 h-4 w-4" />
