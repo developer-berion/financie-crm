@@ -9,7 +9,9 @@ const ALLOWED_ORIGINS = [
   'https://crm.financiegroup.com',
   'https://financiegroup.com',
   'https://www.financiegroup.com',
+  'https://portal-staging.financiegroup.com',
   'http://localhost:5173',   // Vite dev
+  'http://localhost:5174',   // Vite preview
   'http://localhost:3000',   // Alt dev
 ];
 
