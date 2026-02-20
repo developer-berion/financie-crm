@@ -66,7 +66,7 @@ export default function LeadQuickAdd({ onLeadAdded }: { onLeadAdded: () => void 
         setLoading(true);
         setIsMergeModalOpen(false);
         try {
-            const { error } = await supabase.rpc('merge_leads', {
+            await supabase.rpc('merge_leads', {
                 p_survivor_id: survivorId,
                 // Passing a dummy or null since duplicate doesn't exist yet, 
                 // but the RPC requires it to not be null and to exist.
