@@ -21,6 +21,10 @@ export interface Lead {
   contact_attempts?: number;
   last_contact_attempt?: string;
   last_interaction_at?: string; // New field
+  expected_close_date?: string | null;
+  priority?: 'High' | 'Medium' | 'Low';
+  billing_info?: any;
+  contract_details?: Record<string, any>;
   pipeline_stages?: { name: string } | { name: string }[] | null;
 }
 

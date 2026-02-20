@@ -11,13 +11,21 @@ import UpcomingAppointments from '../components/dashboard/UpcomingAppointments';
 import AgentsSummary from '../components/dashboard/AgentsSummary';
 import DateRangeFilter from '../components/dashboard/DateRangeFilter';
 import MyDayWidget from '../components/dashboard/MyDayWidget';
+import RevenueForecast from '../components/dashboard/RevenueForecast';
+import type { ForecastStage } from '../components/dashboard/RevenueForecast';
+import AgentLeaderboard from '../components/dashboard/AgentLeaderboard';
+import type { AgentPerformance } from '../components/dashboard/AgentLeaderboard';
 import { getDashboardDateRange, type DashboardDateRange } from '../lib/date-utils';
 
 interface StageCount {
     id: string;
     name: string;
-    count: number;
     sort_order: number;
+    current_leads: number;
+    entered_leads: number;
+    conversion_rate: number;
+    dropoff_rate: number;
+    is_red_flag?: boolean;
 }
 
 /**
@@ -44,8 +52,18 @@ export default function Dashboard() {
     // Next appointment time badge
     const [nextApptTime, setNextApptTime] = useState<string | null>(null);
 
-    // Pipeline
+    // Pipeline and Forecast
     const [pipelineStages, setPipelineStages] = useState<StageCount[]>([]);
+    const [pipelineLoading, setPipelineLoading] = useState(true);
+    const [pipelineError, setPipelineError] = useState(false);
+
+    const [forecastStages, setForecastStages] = useState<ForecastStage[]>([]);
+    const [forecastLoading, setForecastLoading] = useState(true);
+    const [forecastError, setForecastError] = useState(false);
+
+    const [agentPerformance, setAgentPerformance] = useState<AgentPerformance[]>([]);
+    const [leaderboardLoading, setLeaderboardLoading] = useState(true);
+    const [leaderboardError, setLeaderboardError] = useState(false);
 
     // Activity Feed
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -65,6 +83,127 @@ export default function Dashboard() {
         fetchDashboardData(dateRange);
     }, [dateRange]);
 
+    const fetchPipelineData = async () => {
+        const { start, end } = getDashboardDateRange(dateRange);
+        setPipelineLoading(true);
+        setPipelineError(false);
+        try {
+            const { data: leakageData, error: leakageError } = await supabase
+                .rpc('get_pipeline_leakage', {
+                    p_start_date: start,
+                    p_end_date: end,
+                    p_source: null
+                });
+
+            let processedStages: any[] = [];
+
+            if (!leakageError && leakageData && leakageData.length > 0) {
+                processedStages = leakageData.map((s: any) => ({
+                    id: s.stage_id,
+                    name: s.stage_name,
+                    sort_order: s.sort_order,
+                    current_leads: s.current_leads,
+                    entered_leads: s.entered_leads || s.current_leads,
+                }));
+            } else {
+                const { data: stagesData } = await supabase.from('pipeline_stages').select('*').order('sort_order');
+                const { data: leadsWithStage } = await supabase.from('leads').select('stage_id').gte('created_at', start).lte('created_at', end);
+
+                const countMap: Record<string, number> = {};
+                (leadsWithStage || []).forEach((l) => countMap[l.stage_id] = (countMap[l.stage_id] || 0) + 1);
+
+                if (stagesData) {
+                    processedStages = stagesData.map((s) => ({
+                        id: s.id,
+                        name: s.name,
+                        sort_order: s.sort_order,
+                        current_leads: countMap[s.id] || 0,
+                        entered_leads: countMap[s.id] || 0,
+                    }));
+                }
+            }
+
+            let minCR = 100;
+            let redFlagStageId: string | null = null;
+            let previousEntered = processedStages[0]?.entered_leads || 0;
+
+            const enrichedStages = processedStages.map((stage, index) => {
+                let conversion_rate = 100;
+                let dropoff_rate = 0;
+
+                const adjustedEntered = index === 0 ? stage.entered_leads : Math.min(stage.entered_leads, previousEntered);
+                previousEntered = adjustedEntered;
+
+                if (index > 0 && processedStages[index - 1].entered_leads > 0) {
+                    conversion_rate = Math.round((adjustedEntered / processedStages[index - 1].entered_leads) * 100);
+                    dropoff_rate = 100 - conversion_rate;
+
+                    if (conversion_rate < minCR && adjustedEntered > 0) {
+                        minCR = conversion_rate;
+                        redFlagStageId = stage.id;
+                    }
+                }
+
+                return {
+                    ...stage,
+                    entered_leads: adjustedEntered,
+                    conversion_rate,
+                    dropoff_rate
+                };
+            });
+
+            setPipelineStages(enrichedStages.map((s) => ({
+                ...s,
+                is_red_flag: s.id === redFlagStageId && s.dropoff_rate > 30
+            })));
+        } catch (error) {
+            console.error('Pipeline fetch error:', error);
+            setPipelineError(true);
+        } finally {
+            setPipelineLoading(false);
+        }
+    };
+
+    const fetchForecastData = async () => {
+        const { start, end } = getDashboardDateRange(dateRange);
+        setForecastLoading(true);
+        setForecastError(false);
+        try {
+            const { data: forecastData, error } = await supabase
+                .rpc('get_revenue_forecast', {
+                    p_start_date: start,
+                    p_end_date: end
+                });
+            if (error) throw error;
+            if (forecastData) setForecastStages(forecastData);
+        } catch (error) {
+            console.error('Forecast fetch error:', error);
+            setForecastError(true);
+        } finally {
+            setForecastLoading(false);
+        }
+    };
+
+    const fetchLeaderboardData = async () => {
+        const { start, end } = getDashboardDateRange(dateRange);
+        setLeaderboardLoading(true);
+        setLeaderboardError(false);
+        try {
+            const { data: leaderData, error } = await supabase
+                .rpc('get_agent_leaderboard', {
+                    p_start_date: start,
+                    p_end_date: end
+                });
+            if (error) throw error;
+            if (leaderData) setAgentPerformance(leaderData);
+        } catch (error) {
+            console.error('Leaderboard fetch error:', error);
+            setLeaderboardError(true);
+        } finally {
+            setLeaderboardLoading(false);
+        }
+    };
+
     async function fetchDashboardData(range: DashboardDateRange) {
         const { start, end } = getDashboardDateRange(range);
 
@@ -77,6 +216,11 @@ export default function Dashboard() {
         setLoading(true);
 
         try {
+            // ─── Trigger Independent Intelligence Fetches ──────────
+            fetchPipelineData();
+            fetchForecastData();
+            fetchLeaderboardData();
+
             // ─── KPI Queries (parallel) ────────────────────────
             const [
                 totalLeadsRes,
@@ -121,33 +265,6 @@ export default function Dashboard() {
             setAppointmentsToday(apptsTodayRes.count || 0);
             setPendingTasks(tasksRes.count || 0);
             setPendingJobs(jobsRes.count || 0);
-
-            // ─── Pipeline Distribution ─────────────────────────
-            const { data: stagesData } = await supabase
-                .from('pipeline_stages')
-                .select('id, name, sort_order')
-                .order('sort_order');
-
-            if (stagesData) {
-                const { data: leadsWithStage } = await supabase
-                    .from('leads')
-                    .select('stage_id');
-
-                const countMap: Record<string, number> = {};
-                (leadsWithStage || []).forEach((l) => {
-                    if (l.stage_id) {
-                        countMap[l.stage_id] = (countMap[l.stage_id] || 0) + 1;
-                    }
-                });
-
-                const stagesWithCounts: StageCount[] = stagesData.map((s) => ({
-                    id: s.id,
-                    name: s.name,
-                    sort_order: s.sort_order,
-                    count: countMap[s.id] || 0,
-                }));
-                setPipelineStages(stagesWithCounts);
-            }
 
             // ─── Activity Feed (last 8 events) ────────────────
             const { data: eventsData } = await supabase
@@ -279,22 +396,7 @@ export default function Dashboard() {
                     ))}
                 </div>
 
-                {/* Pipeline skeleton */}
-                <div className="bg-white rounded-2xl border border-brand-border p-6">
-                    <div className="h-5 w-32 bg-gray-200 rounded mb-4" />
-                    {[...Array(6)].map((_, i) => (
-                        <div key={i} className="flex items-center gap-3 mb-2">
-                            <div className="h-3 w-32 bg-gray-100 rounded" />
-                            <div className="flex-1 h-7 bg-gray-100 rounded-lg" />
-                        </div>
-                    ))}
-                </div>
-
-                {/* Bottom grid skeleton */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div className="bg-white rounded-2xl border border-brand-border p-6 h-72" />
-                    <div className="bg-white rounded-2xl border border-brand-border p-6 h-72" />
-                </div>
+                {/* Independent components will manage their own skeletons */}
             </div>
         );
     }
@@ -353,8 +455,21 @@ export default function Dashboard() {
                 />
             </div>
 
-            {/* ─── Pipeline Funnel ──────────────────────────── */}
-            <PipelineFunnel stages={pipelineStages} />
+            {/* ─── Intelligence Charts ──────────────────────── */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <PipelineFunnel
+                    stages={pipelineStages}
+                    isLoading={pipelineLoading}
+                    isError={pipelineError}
+                    onRetry={fetchPipelineData}
+                />
+                <RevenueForecast
+                    stages={forecastStages}
+                    isLoading={forecastLoading}
+                    isError={forecastError}
+                    onRetry={fetchForecastData}
+                />
+            </div>
 
             {/* ─── My Day + activity ──── */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -370,9 +485,15 @@ export default function Dashboard() {
                 </div>
             </div>
 
-            {/* ─── Upcoming Appointments ──── */}
+            {/* ─── Upcoming Appointments & Agents ──── */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <UpcomingAppointments appointments={upcomingAppointments} />
+                <AgentLeaderboard
+                    agents={agentPerformance}
+                    isLoading={leaderboardLoading}
+                    isError={leaderboardError}
+                    onRetry={fetchLeaderboardData}
+                />
             </div>
 
             {/* ─── Agents Summary ───────────────────────────── */}

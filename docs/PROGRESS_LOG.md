@@ -81,4 +81,18 @@
 45:     - Limpieza de `config.toml` (eliminación de funciones obsoletas).
 46:     - Verificación de Build y Unit Tests exitosa.
 47: - **Decisiones tomadas:** Se reactiva el despachador de llamadas tras verificar la estabilidad de la integración con ElevenLabs.
-48: - **Próximo:** Despliegue final y monitoreo de webhooks reales.
+- **Próximo:** Despliegue final y monitoreo de webhooks reales.
+
+## 2026-02-20
+- **Hecho:**
+    - Implementación de Stage-Specific UI (Dynamic Layouts) para Smart Leads: `StageTracker`, `EarlyStageView`, `MidStageView`, `LateStageView`.
+    - Implementación de Hooks (`useDuplicateDetector`, `useDebounce`) e Interfaz UI (`DataIntegrityIndicator`, `MergeConflictModal`) para el Motor Anti-Duplicados (Anti-Duplicate Engine).
+    - Creación de Migración SQL `20260220183546_add_deduplication_rpcs.sql` habilitando `pg_trgm`.
+    - Modificado `LeadQuickAdd` para interceptar duplicados e inyectar el conflict modal.
+- **Decisiones tomadas:** [Anti-Duplicate Engine con Diff Before Apply](./DECISIONS.md)
+- **Bloqueos:**
+    - El entorno de Staging (`mgewvaujdsvnmaoulnwr`) tenía el historial de migraciones corrupto/desincronizado con respecto a local. Se reparó con `repair --status applied/reverted`, sin embargo, la última migración falló al ser subida por conflictos previos en el historial de `supabase/migrations`.
+- **Próximo:**
+    - Subir el código a Git para no perder cambios de UI y SQL.
+    - Resolver limpiar/resetear la DB de Staging o hacer squash de migraciones para la correcta subida de los RPCs del Anti-Duplicate Engine.
+    - Testear el flujo E2E del Merge Conflict.

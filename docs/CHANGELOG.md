@@ -8,6 +8,22 @@
     - Modal de edición con historial de cambios.
     - **Archiving**: Sistema de archivado y restauración de notas con vista dedicada.
 
+## [2026-02-20] - Smart Leads: Dynamic Layouts & Anti-Duplicate Engine
+
+### Added
+- **Feature**: Anti-Duplicate Engine.
+    - Detección asíncrona de duplicados usando `pg_trgm` (Exacto y 80%+ Fuzzy match).
+    - Nuevo `DataIntegrityIndicator` para UX asíncrona de revisión de datos.
+    - Componente `MergeConflictModal` para resolución de conflictos (Diff Before Apply).
+    - Prevención estricta en `LeadQuickAdd` de crear leads si un conflicto existe (fuerza la revisión/merge).
+- **Feature**: Dynamic Layouts (Stage-Specific UI).
+    - Introducidos `EarlyStageView`, `MidStageView` y `LateStageView` para modificar densidad visual basada en Stage.
+    - Componente interactivo `StageTracker` para navegar estados.
+    - Implementados campos de cabecera fijos ("Sticky header") para `Priority` y `Close Date`.
+
+### Changed
+- Configuración de la CLI de Supabase actualizada explícitamente a Staging.
+
 ## [2026-02-17] - Dashboard Restructuring & Real-Time Metrics
 
 ### Added
