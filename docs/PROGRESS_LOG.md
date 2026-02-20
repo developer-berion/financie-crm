@@ -116,5 +116,9 @@
     - Integración visual de creación de tareas en `LeadDetail` y `Tasks` page.
 - **Decisiones tomadas:** [Asignación Automática y Recordatorios de Doble Capa (24h/1h)](./DECISIONS.md)
 - **Bloqueos:** Ninguno.
-- **Próximo:** 
-    - Commit a staging y despliegue final.
+- **Próximo:** Commit a staging y despliegue final.
+
+## 2026-02-20 (Technical Audit)
+- **Hecho:** Ejecución de `scan_profundo`. Mapeo de inventario y flujos críticos. Generación de reporte de riesgos.
+- **Hallazgos:** Riesgos medios-altos en RLS de notas y autenticación de webhooks Meta.
+- **Próximo:** Aplicar parches de seguridad y documentación de remediación.

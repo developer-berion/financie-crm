@@ -23,10 +23,23 @@
     - Nuevas columnas `assigned_to` y `reminders_sent` en la tabla `tasks`.
     - Índice optimizado `idx_tasks_due_reminders` para escaneo de vencimientos.
 
-## [2026-02-20] - Pipeline Governance & Smart Leads Finalization
+## [2026-02-20] - Pipeline Governance, Task Management & Audit
 
 ### Added
-- **Feature**: Pipeline Governance (Validation Rules).
+- **Feature**: Manual Task Creation.
+    - Nuevo modal premium `TaskModal.tsx` para creación rápida.
+    - Integración en `LeadDetail` y global `Tasks` page.
+- **Feature**: Automated Reminder Engine.
+    - Edge Function `task-reminders` con lógica de 24h/1h.
+    - Programación vía `pg_cron` cada hora.
+    - Emails transaccionales vía Brevo con branding corporativo.
+- **Audit**: Deep Code Audit (v1.0.0).
+    - Generación de `PRODUCT_AUDIT_REPORT.md` e `INVENTORY.md`.
+    - Identificación de riesgos críticos en RLS y Webhooks.
+
+### Improved
+- **Stability**: Optimización de `shared-utils.ts` con fetch retries y enmascaramiento de PII.
+- **UX**: Navegación mejorada en el Dashboard de Tareas.
     - Database `BEFORE UPDATE` Trigger para asegurar la integridad de datos ('Propuesta' y 'Cerrado Ganado').
     - Componente `StageGateModal` inyectando UI de requerimientos "Just-in-Time" para resolver conflictos pre-guardado.
     - Interceptores en Kanban ("Ghost Drop" pattern) e íconos "Lock" explicativos en `KanbanHeader`.
