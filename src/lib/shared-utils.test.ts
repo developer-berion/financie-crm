@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 // =============================================================================
 // Extracted pure functions from shared-utils.ts for testing
@@ -281,25 +281,30 @@ async function fetchWithRetry(url: string, options: RequestInit, retries = 3, ba
 
 describe('shared-utils — fetchWithRetry', () => {
     // Mock global fetch
-    const originalFetch = global.fetch;
+    // @ts-ignore
+    const originalFetch = globalThis.fetch;
     
     beforeEach(() => {
-        global.fetch = originalFetch;
+        // @ts-ignore
+        globalThis.fetch = originalFetch;
     });
 
     afterEach(() => {
-        global.fetch = originalFetch;
+        // @ts-ignore
+        globalThis.fetch = originalFetch;
     });
 
     it('returns response immediately if ok', async () => {
-        global.fetch = (async () => new Response('ok', { status: 200 })) as any;
+        // @ts-ignore
+        globalThis.fetch = (async () => new Response('ok', { status: 200 })) as any;
         const res = await fetchWithRetry('http://test.com', {});
         expect(res.status).toBe(200);
     });
 
     it('retries on 500 status', async () => {
         let attempts = 0;
-        global.fetch = (async () => {
+        // @ts-ignore
+        globalThis.fetch = (async () => {
             attempts++;
             if (attempts < 3) return new Response('error', { status: 500 });
             return new Response('ok', { status: 200 });
@@ -311,14 +316,16 @@ describe('shared-utils — fetchWithRetry', () => {
     });
 
     it('fails after max retries on 500', async () => {
-        global.fetch = (async () => new Response('error', { status: 500 })) as any;
+        // @ts-ignore
+        globalThis.fetch = (async () => new Response('error', { status: 500 })) as any;
         const res = await fetchWithRetry('http://test.com', {}, 2, 1);
         expect(res.status).toBe(500);
     });
 
     it('retries on network error (throw)', async () => {
         let attempts = 0;
-        global.fetch = (async () => {
+        // @ts-ignore
+        globalThis.fetch = (async () => {
             attempts++;
             if (attempts < 2) throw new Error('Network Error');
             return new Response('ok', { status: 200 });
@@ -331,7 +338,8 @@ describe('shared-utils — fetchWithRetry', () => {
 
     it('does not retry on 400 errors', async () => {
         let attempts = 0;
-        global.fetch = (async () => {
+        // @ts-ignore
+        globalThis.fetch = (async () => {
             attempts++;
             return new Response('client error', { status: 400 });
         }) as any;

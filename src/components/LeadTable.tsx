@@ -1,10 +1,11 @@
 import { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, ExternalLink, Phone, MessageCircle, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ExternalLink, Phone, MessageCircle, ChevronUp, ChevronDown, ChevronsUpDown, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '../lib/utils';
 import type { Lead } from '../types';
-import { format } from 'date-fns';
+import { format, formatDistanceToNow, differenceInHours } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { getStatusConfig } from '../lib/constants';
 
 interface LeadTableProps {
     leads: Lead[];
@@ -13,7 +14,7 @@ interface LeadTableProps {
 
 export default function LeadTable({ leads }: LeadTableProps) {
     const [currentPage, setCurrentPage] = useState(1);
-    const [sortColumn, setSortColumn] = useState<'name' | 'stage' | 'created_at' | null>('created_at');
+    const [sortColumn, setSortColumn] = useState<'name' | 'stage' | 'created_at' | 'last_interaction'>('created_at');
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
     const itemsPerPage = 7;
 
@@ -31,6 +32,7 @@ export default function LeadTable({ leads }: LeadTableProps) {
                 if (col === 'name') return lead.full_name.toLowerCase();
                 if (col === 'stage') return getStageName(lead).toLowerCase();
                 if (col === 'created_at') return new Date(lead.created_at).getTime();
+                if (col === 'last_interaction') return new Date(lead.last_interaction_at || lead.created_at).getTime();
                 return 0;
             };
 
@@ -48,7 +50,7 @@ export default function LeadTable({ leads }: LeadTableProps) {
     const startIndex = (currentPage - 1) * itemsPerPage;
     const currentLeads = sortedLeads.slice(startIndex, startIndex + itemsPerPage);
 
-    const handleSort = (column: 'name' | 'stage' | 'created_at') => {
+    const handleSort = (column: 'name' | 'stage' | 'created_at' | 'last_interaction') => {
         if (sortColumn === column) {
             setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
         } else {
@@ -56,26 +58,6 @@ export default function LeadTable({ leads }: LeadTableProps) {
             setSortDirection('asc');
         }
         setCurrentPage(1);
-    };
-
-    const getRowBorderColor = (stageName: string = '') => {
-        const lower = stageName.toLowerCase();
-        if (lower.includes('contacto 1')) return 'border-l-4 border-emerald-500';
-        if (lower.includes('contacto 2')) return 'border-l-4 border-yellow-400';
-        if (lower.includes('contacto 3')) return 'border-l-4 border-red-500';
-        if (lower.includes('ganado')) return 'border-l-4 border-green-600';
-        if (lower.includes('perdido')) return 'border-l-4 border-gray-300 opacity-70';
-        return 'border-l-4 border-indigo-500';
-    };
-
-    const getStageBadgeStyle = (stageName: string = '') => {
-        const lower = stageName.toLowerCase();
-        if (lower.includes('contacto 1')) return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-        if (lower.includes('contacto 2')) return 'bg-yellow-50 text-yellow-700 border-yellow-200';
-        if (lower.includes('contacto 3')) return 'bg-red-50 text-red-700 border-red-200';
-        if (lower.includes('ganado')) return 'bg-green-50 text-green-700 border-green-200';
-        if (lower.includes('perdido')) return 'bg-gray-50 text-gray-600 border-gray-200';
-        return 'bg-blue-50 text-blue-700 border-blue-200';
     };
 
     return (
@@ -108,6 +90,18 @@ export default function LeadTable({ leads }: LeadTableProps) {
                                     <SortIcon column="stage" sortColumn={sortColumn} sortDirection={sortDirection} />
                                 </button>
                             </th>
+                            <th className="px-6 py-4 text-[11px] font-bold text-gray-400 uppercase tracking-widest w-[140px]">
+                                <button
+                                    onClick={() => handleSort('last_interaction')}
+                                    className={cn(
+                                        "flex items-center gap-2 transition-colors group",
+                                        sortColumn === 'last_interaction' ? 'text-brand-primary' : 'hover:text-gray-600'
+                                    )}
+                                >
+                                    <span>Últ. Interacción</span>
+                                    <SortIcon column="last_interaction" sortColumn={sortColumn} sortDirection={sortDirection} />
+                                </button>
+                            </th>
                             <th className="px-6 py-4 text-[11px] font-bold text-gray-400 uppercase tracking-widest">Valor</th>
                             <th className="px-6 py-4 text-[11px] font-bold text-gray-400 uppercase tracking-widest">Contacto Directo</th>
                             <th className="px-6 py-4 text-[11px] font-bold text-gray-400 uppercase tracking-widest">
@@ -118,7 +112,7 @@ export default function LeadTable({ leads }: LeadTableProps) {
                                         sortColumn === 'created_at' ? 'text-brand-primary' : 'hover:text-gray-600'
                                     )}
                                 >
-                                    <span>Fecha de Creación</span>
+                                    <span>Creado</span>
                                     <SortIcon column="created_at" sortColumn={sortColumn} sortDirection={sortDirection} />
                                 </button>
                             </th>
@@ -128,13 +122,21 @@ export default function LeadTable({ leads }: LeadTableProps) {
                     <tbody className="divide-y divide-gray-100">
                         {currentLeads.map((lead) => {
                             const stageName = getStageName(lead) || 'Nuevo';
+                            const statusConfig = getStatusConfig(stageName);
+                            // Use the specific text color for the strong left border (e.g. text-blue-700 -> border-blue-700)
+                            const strongBorderColor = statusConfig.color.replace('text-', 'border-');
+
+                            // Last Interaction Logic
+                            const lastInteractionDate = lead.last_interaction_at ? new Date(lead.last_interaction_at) : null;
+                            const hoursSince = lastInteractionDate ? differenceInHours(new Date(), lastInteractionDate) : 0;
+                            const isNeglected = (hoursSince > 48 && stageName.toLowerCase() !== 'ganado' && stageName.toLowerCase() !== 'perdido');
 
                             return (
                                 <tr
                                     key={lead.id}
                                     className={cn(
-                                        "h-[75px] group hover:bg-gray-50/50 transition-all relative",
-                                        getRowBorderColor(stageName)
+                                        "h-[75px] group hover:bg-gray-50/50 transition-all relative border-l-4",
+                                        strongBorderColor
                                     )}
                                 >
                                     <td className="px-6 py-2">
@@ -158,10 +160,27 @@ export default function LeadTable({ leads }: LeadTableProps) {
                                     <td className="px-6 py-2">
                                         <span className={cn(
                                             "inline-flex px-3 py-1 rounded-lg text-[11px] font-bold border truncate max-w-[150px]",
-                                            getStageBadgeStyle(stageName)
+                                            statusConfig.bg,
+                                            statusConfig.color,
+                                            statusConfig.border
                                         )}>
                                             {stageName}
                                         </span>
+                                    </td>
+                                    <td className="px-6 py-2">
+                                        {lastInteractionDate ? (
+                                            <div className="flex items-center gap-2" title={`Hace ${hoursSince} horas`}>
+                                                <div className={cn(
+                                                    "flex items-center gap-1.5 text-xs font-medium",
+                                                    isNeglected ? "text-red-600" : "text-gray-600"
+                                                )}>
+                                                    {isNeglected && <AlertCircle className="w-3.5 h-3.5" />}
+                                                    <span>{formatDistanceToNow(lastInteractionDate, { locale: es, addSuffix: true })}</span>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <span className="text-xs text-gray-400 italic">Sin actividad</span>
+                                        )}
                                     </td>
                                     <td className="px-6 py-2">
                                         <span className="text-sm font-bold text-gray-900">
@@ -186,9 +205,6 @@ export default function LeadTable({ leads }: LeadTableProps) {
                                         <div className="flex flex-col">
                                             <span className="text-xs font-bold text-gray-900">
                                                 {format(new Date(lead.created_at), 'dd MMM, yyyy', { locale: es })}
-                                            </span>
-                                            <span className="text-[10px] font-medium text-gray-400 uppercase">
-                                                {format(new Date(lead.created_at), 'HH:mm', { locale: es })}
                                             </span>
                                         </div>
                                     </td>
@@ -244,8 +260,8 @@ export default function LeadTable({ leads }: LeadTableProps) {
 }
 
 function SortIcon({ column, sortColumn, sortDirection }: {
-    column: 'name' | 'stage' | 'created_at',
-    sortColumn: 'name' | 'stage' | 'created_at' | null,
+    column: 'name' | 'stage' | 'created_at' | 'last_interaction',
+    sortColumn: 'name' | 'stage' | 'created_at' | 'last_interaction' | null,
     sortDirection: 'asc' | 'desc'
 }) {
     if (sortColumn !== column) {

@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
@@ -7,6 +8,7 @@ interface StatCardProps {
     icon: LucideIcon;
     color: 'primary' | 'emerald' | 'secondary' | 'amber' | 'blue';
     badge?: string;
+    to?: string;
 }
 
 const colorMap = {
@@ -37,15 +39,11 @@ const colorMap = {
     },
 };
 
-export default function StatCard({ title, value, icon: Icon, color, badge }: StatCardProps) {
+export default function StatCard({ title, value, icon: Icon, color, badge, to }: StatCardProps) {
     const colors = colorMap[color];
 
-    return (
-        <div
-            className="bg-white p-5 rounded-2xl shadow-sm border border-brand-border hover:shadow-md transition-all group"
-            role="group"
-            aria-label={`${title}: ${value}`}
-        >
+    const content = (
+        <>
             <div className="flex items-center justify-between mb-3">
                 <div className={cn('p-2.5 rounded-xl transition-colors', colors.iconBg)}>
                     <Icon className={cn('h-5 w-5', colors.iconColor)} />
@@ -58,6 +56,34 @@ export default function StatCard({ title, value, icon: Icon, color, badge }: Sta
             </div>
             <p className="text-xs font-medium text-brand-text/60 mb-1">{title}</p>
             <p className={cn('text-2xl font-bold', colors.valueColor)}>{value}</p>
+        </>
+    );
+
+    const className = cn(
+        "bg-white p-5 rounded-2xl shadow-sm border border-brand-border transition-all group",
+        "focus-within:ring-2 focus-within:ring-brand-primary/20 outline-none",
+        to ? "hover:shadow-md hover:scale-[1.02] hover:border-brand-primary/20 cursor-pointer active:scale-[0.98]" : ""
+    );
+
+    if (to) {
+        return (
+            <Link
+                to={to}
+                className={className}
+                aria-label={`${title}: ${value}. Haz clic para ver detalles.`}
+            >
+                {content}
+            </Link>
+        );
+    }
+
+    return (
+        <div
+            className={className}
+            role="group"
+            aria-label={`${title}: ${value}`}
+        >
+            {content}
         </div>
     );
 }

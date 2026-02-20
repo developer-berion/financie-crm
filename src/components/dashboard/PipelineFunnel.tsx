@@ -14,6 +14,9 @@ interface PipelineFunnelProps {
 
 const stageColors: Record<string, string> = {
     'lead nuevo': 'bg-blue-500',
+    'contacto 1': 'bg-emerald-500',
+    'contacto 2': 'bg-yellow-500',
+    'contacto 3': 'bg-red-500',
     'llamada en curso': 'bg-indigo-500',
     'contactado': 'bg-violet-500',
     'calificando': 'bg-violet-500',

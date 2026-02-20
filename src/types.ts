@@ -20,6 +20,7 @@ export interface Lead {
   currency?: string;
   contact_attempts?: number;
   last_contact_attempt?: string;
+  last_interaction_at?: string; // New field
   pipeline_stages?: { name: string } | { name: string }[] | null;
 }
 

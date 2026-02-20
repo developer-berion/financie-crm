@@ -1,4 +1,3 @@
-
 # Implementation Plan: Basic Product Improvements (Phase 1)
 
 **Version:** 2.0 (Detailed) **Role:** Product Manager Enterprise (pm_crm_enterprise) **Focus:** Operational Hygiene, Usability, and "Quick Wins". **Goal:** Reduce click fatigue (Time-to-Task) and increase Visibility (No "Black Holes" for leads).
