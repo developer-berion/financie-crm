@@ -8,6 +8,30 @@
     - Modal de edición con historial de cambios.
     - **Archiving**: Sistema de archivado y restauración de notas con vista dedicada.
 
+## [2026-02-20] - Task Management & Automated Reminders
+
+### Added
+- **Feature**: Manual Task Creation.
+    - Componente `TaskModal` para creación de tareas ad-hoc con asignación automática.
+    - Integración de botones "+ Nueva Tarea" en `LeadDetail` y página global de `Tasks`.
+    - Soporte para prioridad, fecha de vencimiento y tipos de tarea personalizados.
+- **Feature**: Automated Reminder Engine.
+    - Edge Function `task-reminders` para escaneo horario de tareas por vencer.
+    - Integración con Brevo para envío de recordatorios (24h y 1h antes del deadline).
+    - Cron Job en Supabase (`process-task-reminders`) para ejecución automatizada.
+- **Database**: 
+    - Nuevas columnas `assigned_to` y `reminders_sent` en la tabla `tasks`.
+    - Índice optimizado `idx_tasks_due_reminders` para escaneo de vencimientos.
+
+## [2026-02-20] - Pipeline Governance & Smart Leads Finalization
+
+### Added
+- **Feature**: Pipeline Governance (Validation Rules).
+    - Database `BEFORE UPDATE` Trigger para asegurar la integridad de datos ('Propuesta' y 'Cerrado Ganado').
+    - Componente `StageGateModal` inyectando UI de requerimientos "Just-in-Time" para resolver conflictos pre-guardado.
+    - Interceptores en Kanban ("Ghost Drop" pattern) e íconos "Lock" explicativos en `KanbanHeader`.
+    - Actualizado `StageTracker` y `LateStageView` para permitir entrada orgánica de `contract_details` requeridos por las reglas.
+
 ## [2026-02-20] - Smart Leads: Dynamic Layouts & Anti-Duplicate Engine
 
 ### Added

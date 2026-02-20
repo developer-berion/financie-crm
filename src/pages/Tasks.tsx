@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { CheckCircle, Circle, AlertCircle } from 'lucide-react';
+import { CheckCircle, Circle, AlertCircle, Plus } from 'lucide-react';
 import { format } from 'date-fns';
+import TaskModal from '../components/tasks/TaskModal';
 
 export default function Tasks() {
     const [tasks, setTasks] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
 
     useEffect(() => {
         fetchTasks();
@@ -46,8 +48,17 @@ export default function Tasks() {
                             Gestión de tareas y recordatorios
                         </p>
                     </div>
-                    <div className="text-sm font-medium text-gray-500">
-                        {pendingTasks} pendientes
+                    <div className="flex items-center gap-4">
+                        <button
+                            onClick={() => setIsTaskModalOpen(true)}
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-xl font-bold text-sm shadow-lg shadow-brand-primary/20 hover:bg-brand-dark transition-all active:scale-95"
+                        >
+                            <Plus className="w-4 h-4" />
+                            Nueva Tarea
+                        </button>
+                        <div className="text-sm font-medium text-gray-500">
+                            {pendingTasks} pendientes
+                        </div>
                     </div>
                 </div>
             </div>
@@ -88,6 +99,12 @@ export default function Tasks() {
                     )}
                 </ul>
             </div>
+
+            <TaskModal
+                isOpen={isTaskModalOpen}
+                onClose={() => setIsTaskModalOpen(false)}
+                onTaskCreated={fetchTasks}
+            />
         </div>
     );
 }

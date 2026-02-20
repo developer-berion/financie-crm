@@ -24,6 +24,8 @@ import DealCard from '../components/pipeline/DealCard';
 import KanbanHeader from '../components/pipeline/KanbanHeader';
 import { toast } from 'sonner';
 import NoteModal from '../components/NoteModal';
+import { validateLeadStageGate } from '../lib/stage-gates';
+import { StageGateModal } from '../components/pipeline/StageGateModal';
 
 // Column Component
 function KanbanColumn({ stage, leads, onAddNote }: { stage: PipelineStage; leads: Lead[]; onAddNote: (lead: Lead) => void }) {
@@ -55,6 +57,19 @@ export default function Pipeline() {
     const [activeId, setActiveId] = useState<string | null>(null);
     const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
     const [selectedLeadForNote, setSelectedLeadForNote] = useState<Lead | null>(null);
+    const [gateModalState, setGateModalState] = useState<{
+        isOpen: boolean;
+        lead: Lead | null;
+        targetStageId: string;
+        targetStageName: string;
+        missingFields: string[];
+    }>({
+        isOpen: false,
+        lead: null,
+        targetStageId: '',
+        targetStageName: '',
+        missingFields: []
+    });
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -126,6 +141,23 @@ export default function Pipeline() {
         const currentLead = leads.find(l => l.id === leadId);
         if (!currentLead || currentLead.stage_id === targetStageId) return;
 
+        // --- NEW Validation Rule Check ---
+        const targetStageName = stages.find(s => s.id === targetStageId)?.name || '';
+        const missingFields = validateLeadStageGate(currentLead, targetStageName);
+
+        if (missingFields.length > 0) {
+            // Trigger Ghost Drop bounce (don't update lead array here)
+            // Open modal to resolve missing fields
+            setGateModalState({
+                isOpen: true,
+                lead: currentLead,
+                targetStageId,
+                targetStageName,
+                missingFields
+            });
+            return;
+        }
+
         // --- Optimistic Update ---
         const originalLeads = [...leads];
         setLeads(prev => prev.map(l => l.id === leadId ? { ...l, stage_id: targetStageId, updated_at: new Date().toISOString() } : l));
@@ -155,6 +187,44 @@ export default function Pipeline() {
             setLeads(originalLeads); // Rollback
         }
     }
+
+    const handleGateModalSubmit = async (updates: Partial<Lead>) => {
+        const { lead, targetStageId } = gateModalState;
+        if (!lead || !targetStageId) return;
+
+        // Perform optimistic update merging new fields
+        const originalLeads = [...leads];
+        setLeads(prev => prev.map(l => l.id === lead.id ? {
+            ...l,
+            ...updates,
+            stage_id: targetStageId,
+            updated_at: new Date().toISOString()
+        } : l));
+
+        try {
+            const { error } = await supabase.from('leads').update({
+                ...updates,
+                stage_id: targetStageId,
+                updated_at: new Date().toISOString()
+            }).eq('id', lead.id);
+
+            if (error) throw error;
+            toast.success('Deal validado y movido');
+
+            // Log Event
+            const stageName = stages.find(s => s.id === targetStageId)?.name || 'Unknown';
+            await supabase.from('lead_events').insert({
+                lead_id: lead.id,
+                event_type: 'pipeline.stage_changed',
+                payload: { to: stageName, manual: true, requirements_met: true }
+            });
+
+        } catch (error) {
+            console.error("Failed to move deal after gates", error);
+            toast.error('Error al mover el deal tras rellenar campos');
+            setLeads(originalLeads); // Rollback
+        }
+    };
 
     const handleAddNote = (lead: Lead) => {
         setSelectedLeadForNote(lead);
@@ -231,6 +301,17 @@ export default function Pipeline() {
                 onNoteSaved={handleNoteSaved}
                 context={getNoteContext()}
             />
+
+            {gateModalState.lead && (
+                <StageGateModal
+                    isOpen={gateModalState.isOpen}
+                    onClose={() => setGateModalState(prev => ({ ...prev, isOpen: false }))}
+                    lead={gateModalState.lead}
+                    targetStageName={gateModalState.targetStageName}
+                    missingFields={gateModalState.missingFields}
+                    onSubmit={handleGateModalSubmit}
+                />
+            )}
         </div>
     );
 }

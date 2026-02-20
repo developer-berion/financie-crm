@@ -52,3 +52,18 @@ export interface ConversationResult {
   outcome: unknown;
   created_at: string;
 }
+
+export interface Task {
+  id: string;
+  lead_id: string | null;
+  type: string;
+  title: string;
+  due_at: string | null;
+  priority: 'low' | 'med' | 'high';
+  status: 'pending' | 'completed';
+  assigned_to?: string | null;
+  reminders_sent?: { '24h': boolean; '1h': boolean };
+  created_at: string;
+  completed_at: string | null;
+  leads?: { full_name: string };
+}

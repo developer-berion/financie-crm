@@ -537,6 +537,94 @@ export async function sendEmail(lead: LeadContext) {
     }
 }
 
+export async function sendTaskReminderEmail(agent: { email: string, name: string }, task: { title: string, due_at: string, lead_name?: string, id: string }, type: '24h' | '1h') {
+    const apiKey = Deno.env.get('BREVO_API_KEY');
+    if (!apiKey) {
+        console.error('BREVO_API_KEY not set. Skipping email reminder.');
+        return { success: false, error: 'Missing API Key' };
+    }
+
+    const timeLabel = type === '24h' ? '24 horas' : '1 hora';
+    const subject = `RECORDATORIO: ${task.title} vence en ${timeLabel}`;
+    
+    const htmlContent = `
+    <html>
+      <head>
+        <style>
+          body { font-family: 'Inter', Arial, sans-serif; line-height: 1.6; color: #1f2937; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e5e7eb; border-radius: 12px; }
+          .header { background: linear-gradient(135deg, #2563eb, #1d4ed8); color: white; padding: 30px 20px; text-align: center; border-radius: 12px 12px 0 0; }
+          .urgent-badge { background-color: #fee2e2; color: #991b1b; padding: 4px 12px; rounded-full: 999px; font-size: 10px; font-weight: bold; text-transform: uppercase; margin-bottom: 12px; display: inline-block; }
+          .content { padding: 30px; background-color: white; }
+          .footer { text-align: center; font-size: 11px; color: #6b7280; margin-top: 20px; border-top: 1px solid #f3f4f6; padding-top: 20px; }
+          .btn { background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block; margin-top: 20px; font-size: 14px; }
+          .details { background-color: #f9fafb; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #f3f4f6; }
+          .label { color: #6b7280; font-size: 11px; font-weight: bold; text-transform: uppercase; display: block; margin-bottom: 2px; }
+          .value { color: #111827; font-size: 14px; font-weight: 600; display: block; margin-bottom: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <div class="urgent-badge">Recordatorio de Tarea</div>
+            <h2 style="margin: 0; font-size: 20px;">Tienes una tarea próxima a vencer</h2>
+          </div>
+          <div class="content">
+            <p>Hola <strong>${agent.name}</strong>, esta notificación es para recordarte que una tarea asignada vence en breve (${timeLabel}).</p>
+            
+            <div class="details">
+              <span class="label">Tarea</span>
+              <span class="value">${task.title}</span>
+              
+              <span class="label">Lead Asociado</span>
+              <span class="value">${task.lead_name || 'General'}</span>
+              
+              <span class="label">Fecha Límite</span>
+              <span class="value">${new Date(task.due_at).toLocaleString('es-MX', { dateStyle: 'long', timeStyle: 'short' })}</span>
+            </div>
+            
+            <p style="text-align: center;">
+              <a href="${Deno.env.get('APP_URL') || 'https://crm.financiegroup.com'}/tasks" class="btn">Gestionar en el CRM</a>
+            </p>
+          </div>
+          <div class="footer">
+            <p>© 2026 Financie Group CRM • Sistema Automatizado de Gestión</p>
+          </div>
+        </div>
+      </body>
+    </html>
+    `;
+
+    try {
+        const response = await fetchWithRetry('https://api.brevo.com/v3/smtp/email', {
+            method: 'POST',
+            headers: {
+                'accept': 'application/json',
+                'api-key': apiKey,
+                'content-type': 'application/json'
+            },
+            body: JSON.stringify({
+                sender: { name: "Notificaciones Financie", email: "contactus@financiegroup.com" },
+                to: [{ email: agent.email, name: agent.name }],
+                subject: subject,
+                htmlContent: htmlContent
+            })
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`Brevo Reminder Error (${response.status}):`, errorText);
+            return { success: false, error: errorText };
+        }
+
+        const data = await response.json();
+        return { success: true, messageId: data.messageId };
+    } catch (error) {
+        console.error('Exception sending reminder email:', error);
+        return { success: false, error: error.message };
+    }
+}
+
 export async function syncContactToBrevo(lead: LeadContext) {
     const apiKey = Deno.env.get('BREVO_API_KEY');
     if (!apiKey) {

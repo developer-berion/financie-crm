@@ -1,6 +1,8 @@
 import { cn } from '../../lib/utils';
 import type { Lead } from '../../types';
 import { getStatusConfig } from '../../lib/constants';
+import { Lock } from 'lucide-react';
+import { STAGE_GATES } from '../../lib/stage-gates';
 
 interface KanbanHeaderProps {
     stageName: string;
@@ -27,9 +29,16 @@ export default function KanbanHeader({ stageName, leads }: KanbanHeaderProps) {
             config.border
         )}>
             <div className="flex items-center justify-between">
-                <h3 className={cn("font-bold text-sm uppercase tracking-wide", config.color)}>
-                    {stageName}
-                </h3>
+                <div className="flex items-center gap-1.5">
+                    <h3 className={cn("font-bold text-sm uppercase tracking-wide", config.color)}>
+                        {stageName}
+                    </h3>
+                    {STAGE_GATES[stageName] && (
+                        <div title={STAGE_GATES[stageName].explanation} className={cn("cursor-help", config.color)}>
+                            <Lock className="w-3.5 h-3.5 opacity-70 hover:opacity-100 transition-opacity" />
+                        </div>
+                    )}
+                </div>
                 <span className={cn("px-2 py-0.5 rounded-full text-xs font-bold", config.bg, config.color)}>
                     {count}
                 </span>

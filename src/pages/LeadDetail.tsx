@@ -10,6 +10,11 @@ import StageTracker from '../components/leads/StageTracker';
 import EarlyStageView from '../components/leads/views/EarlyStageView';
 import MidStageView from '../components/leads/views/MidStageView';
 import LateStageView from '../components/leads/views/LateStageView';
+import { validateLeadStageGate } from '../lib/stage-gates';
+import { StageGateModal } from '../components/pipeline/StageGateModal';
+import TaskList from '../components/leads/TaskList';
+import TaskModal from '../components/tasks/TaskModal';
+import type { Task } from '../types';
 
 import { Phone, Clock, MessageCircle, Layout, Info, Calendar } from 'lucide-react';
 import { cn, ENABLE_AI_FEATURES } from '../lib/utils';
@@ -39,10 +44,23 @@ export default function LeadDetail() {
     const [notes, setNotes] = useState<any[]>([]);
     const [conversation, setConversation] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const [tasks, setTasks] = useState<Task[]>([]);
     const [isTranscriptModalOpen, setIsTranscriptModalOpen] = useState(false);
     const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
     const [selectedNote, setSelectedNote] = useState<any>(null);
     const [stages, setStages] = useState<PipelineStage[]>([]);
+    const [gateModalState, setGateModalState] = useState<{
+        isOpen: boolean;
+        targetStageId: string;
+        targetStageName: string;
+        missingFields: string[];
+    }>({
+        isOpen: false,
+        targetStageId: '',
+        targetStageName: '',
+        missingFields: []
+    });
+    const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
 
     useEffect(() => {
         if (id) {
@@ -106,6 +124,17 @@ export default function LeadDetail() {
             .maybeSingle();
 
         if (convData) setConversation(convData);
+
+        // Fetch Pending Tasks
+        const { data: taskData } = await supabase
+            .from('tasks')
+            .select('*')
+            .eq('lead_id', id)
+            .eq('status', 'pending')
+            .order('due_at', { ascending: true });
+
+        if (taskData) setTasks(taskData);
+
         setLoading(false);
     }
 
@@ -161,6 +190,71 @@ export default function LeadDetail() {
             console.error('Error updating lead:', error);
             toast.error('Error al actualizar el campo');
         }
+    };
+
+    const handleBulkUpdateLead = async (updates: Record<string, any>) => {
+        try {
+            const { error } = await supabase
+                .from('leads')
+                .update(updates)
+                .eq('id', id);
+
+            if (error) throw error;
+
+            setLead((prev: any) => {
+                const newLead = { ...prev, ...updates };
+                if (updates.stage_id) {
+                    const newStage = stages.find(s => s.id === updates.stage_id);
+                    if (newStage) {
+                        newLead.pipeline_stages = { id: newStage.id, name: newStage.name };
+                    }
+                }
+                return newLead;
+            });
+            toast.success('Lead actualizado');
+        } catch (error) {
+            console.error('Error updating lead via bulk:', error);
+            toast.error('Error al guardar datos. Revisa que cumples las validaciones.');
+            throw error;
+        }
+    };
+
+    const handleStageChange = (stageId: string) => {
+        const targetStageName = stages.find(s => s.id === stageId)?.name || '';
+        const missingFields = validateLeadStageGate(lead, targetStageName);
+
+        if (missingFields.length > 0) {
+            setGateModalState({
+                isOpen: true,
+                targetStageId: stageId,
+                targetStageName,
+                missingFields
+            });
+            return;
+        }
+
+        handleUpdateLead('stage_id', stageId);
+
+        supabase.from('lead_events').insert({
+            lead_id: lead.id,
+            event_type: 'pipeline.stage_changed',
+            payload: { to: targetStageName, manual: true, requirements_met: true }
+        }).then();
+    };
+
+    const handleGateModalSubmit = async (updates: Partial<any>) => {
+        const { targetStageId, targetStageName } = gateModalState;
+
+        await handleBulkUpdateLead({
+            ...updates,
+            stage_id: targetStageId
+        });
+
+        supabase.from('lead_events').insert({
+            lead_id: lead.id,
+            event_type: 'pipeline.stage_changed',
+            payload: { to: targetStageName, manual: true, requirements_met: true }
+        }).then();
     };
 
 
@@ -314,7 +408,7 @@ export default function LeadDetail() {
                     <StageTracker
                         stages={stages}
                         currentStageId={currentStageId}
-                        onStageChange={(id) => handleUpdateLead('stage_id', id)}
+                        onStageChange={handleStageChange}
                     />
                 </div>
 
@@ -322,6 +416,13 @@ export default function LeadDetail() {
 
                     {/* LEFT COLUMN - WORK ZONE (70%) */}
                     <div className="lg:col-span-8 space-y-8">
+                        {/* Task List - Dynamic Actions */}
+                        <TaskList
+                            tasks={tasks}
+                            onTaskCompleted={fetchLeadData}
+                            onAddTask={() => setIsTaskModalOpen(true)}
+                        />
+
                         {(() => {
                             const currentStageOrder = stages.find(s => s.id === currentStageId)?.sort_order || 0;
                             // Example logic: Early <= 2, Mid = 3, Late >= 4
@@ -478,6 +579,24 @@ export default function LeadDetail() {
                     </Modal>
                 )
             }
+
+            {lead && (
+                <StageGateModal
+                    isOpen={gateModalState.isOpen}
+                    onClose={() => setGateModalState(prev => ({ ...prev, isOpen: false }))}
+                    lead={lead}
+                    targetStageName={gateModalState.targetStageName}
+                    missingFields={gateModalState.missingFields}
+                    onSubmit={handleGateModalSubmit}
+                />
+            )}
+
+            <TaskModal
+                isOpen={isTaskModalOpen}
+                onClose={() => setIsTaskModalOpen(false)}
+                leadId={id}
+                onTaskCreated={fetchLeadData}
+            />
 
             {/* Calendly Modal */}
             <PopupModal

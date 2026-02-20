@@ -96,3 +96,25 @@
     - Subir el código a Git para no perder cambios de UI y SQL.
     - Resolver limpiar/resetear la DB de Staging o hacer squash de migraciones para la correcta subida de los RPCs del Anti-Duplicate Engine.
     - Testear el flujo E2E del Merge Conflict.
+
+## 2026-02-20 (Continuación)
+- **Hecho:**
+    - Implementación completa de "Pipeline Governance: Validation Rules (Stage Gates)".
+    - Creación de Migración SQL instalando un `BEFORE UPDATE` trigger en `leads` para asegurar data obligatoria ('Propuesta' -> valor > 0, 'Cerrado Ganado' -> contrato firmado/URL).
+    - Desarrollo Frontend de `StageGateModal.tsx` y motor en `lib/stage-gates.ts`.
+    - Integración de "Ghost Drops" y "Visual Gatekeepers" (íconos Lock) en `KanbanBoard`.
+    - Actualización de `StageTracker` en `LeadDetail` para interceptar cambios inválidos.
+    - Modificación de `LateStageView` para que componentes requieran los campos del `contract_details` JSONB.
+- **Próximo:** 
+    - Pruebas manuales E2E del sistema de Gates por parte del usuario.
+
+## 2026-02-20 (Task Management)
+- **Hecho:**
+    - Implementación completa de "Manual Task Creation" con `TaskModal.tsx`.
+    - Desarrollo del "Automated Reminder Engine" via Edge Function (`task-reminders`) y `pg_cron`.
+    - Actualización de esquema de DB (`tasks` table) y utilidades de email (`sendTaskReminderEmail`).
+    - Integración visual de creación de tareas en `LeadDetail` y `Tasks` page.
+- **Decisiones tomadas:** [Asignación Automática y Recordatorios de Doble Capa (24h/1h)](./DECISIONS.md)
+- **Bloqueos:** Ninguno.
+- **Próximo:** 
+    - Commit a staging y despliegue final.

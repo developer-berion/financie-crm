@@ -63,3 +63,21 @@ Se necesitaba implementar un mecanismo para evitar la creación de leads duplica
 - **Performance**: El check asíncrono sobre la API (`useDuplicateDetector`) podría agregar latencia en formularios, mitigado con un `useDebounce` de 500ms.
 - **Base de Datos**: Se habilitó la extensión `pg_trgm` que incrementa marginalmente el tamaño de indexación en la tabla de leads.
 - **Deploy**: Requiere resolución de estado local/remoto de migraciones de Supabase en Staging para poder aplicar el código RPC en la DB del servidor real.
+
+## 2026-02-20 — Asignación Automática y Recordatorios de Doble Capa
+**Contexto:**
+Se requería un sistema de gestión de tareas que permitiera creación manual y asegurara que el agente sea notificado proactivamente antes del vencimiento.
+
+**Decisión:**
+1. **Asignación Automática**: Por simplicidad para un entorno de 1 solo usuario (o dueño del lead), las tareas manuales se asignan por defecto al usuario que las crea (`auth.uid()`), y las automáticas al dueño del lead.
+2. **Recordatorios de Doble Capa**: Implementar dos notificaciones vía email (Brevo) a las 24h y 1h antes del vencimiento para maximizar el cumplimiento de SLAs sin saturar al usuario.
+3. **Escaneo Horario**: El motor de recordatorios corre cada hora, ofreciendo un balance entre precisión y consumo de recursos.
+
+**Por qué:**
+- **Eficiencia**: Reduce la fricción al crear tareas (menos clicks).
+- **Fiabilidad**: La doble capa asegura que tareas críticas (SLAs cortos) y de largo plazo sean recordadas en momentos clave.
+- **Simplicidad técnica**: Usar `pg_cron` + Edge Functions mantiene el sistema dentro de la infraestructura de Supabase sin dependencias externas complejas.
+
+**Impacto:**
+- **UX**: Incremento en la proactividad del agente.
+- **Database**: Adición de una columna JSONB (`reminders_sent`) para evitar duplicidad de correos ante posibles reintentos del cron.

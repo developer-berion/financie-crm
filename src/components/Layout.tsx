@@ -12,6 +12,7 @@ import {
     ChevronLeft,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import NotificationCenter from './layout/NotificationCenter';
 
 export default function Layout() {
     const { signOut, user } = useAuth();
@@ -113,16 +114,32 @@ export default function Layout() {
                 </div>
             </aside>
 
-            {/* Main Content */}
-            <div className="flex flex-1 flex-col overflow-hidden transition-all duration-300">
-                <header className="flex h-16 items-center border-b bg-white px-6 lg:hidden">
-                    <button
-                        onClick={() => setSidebarOpen(true)}
-                        className="text-gray-500 focus:outline-none"
-                    >
-                        <Menu className="h-6 w-6" />
-                    </button>
-                    <span className="ml-4 text-lg font-semibold text-gray-800">Menu</span>
+            {/* Main Content Area */}
+            <div className="flex flex-1 flex-col overflow-hidden">
+                {/* Global Header */}
+                <header className="flex h-16 shrink-0 items-center justify-between border-b bg-white px-6">
+                    <div className="flex items-center">
+                        <button
+                            onClick={() => setSidebarOpen(true)}
+                            className="mr-4 text-gray-500 hover:text-brand-primary lg:hidden"
+                        >
+                            <Menu className="h-6 w-6" />
+                        </button>
+                        {/* You could add a Search input here in the future */}
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                        <NotificationCenter />
+                        <div className="h-8 w-px bg-gray-200" />
+                        <div className="hidden items-center gap-3 md:flex">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-primary text-xs font-bold text-white uppercase">
+                                {user?.email?.charAt(0) || 'A'}
+                            </div>
+                            <span className="text-sm font-medium text-gray-700 truncate max-w-[150px]">
+                                {user?.email?.split('@')[0]}
+                            </span>
+                        </div>
+                    </div>
                 </header>
 
                 <main className="flex-1 overflow-y-auto p-6">

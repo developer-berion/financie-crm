@@ -113,9 +113,29 @@ export default function LateStageView({ lead, notes, onNewNote, onEditNote, onUp
                 <h3 className="text-xs font-bold text-emerald-800 uppercase tracking-widest mb-3 flex items-center gap-2">
                     <CheckCircle className="w-4 h-4" /> Checklist de Cierre
                 </h3>
-                <div className="space-y-2 text-sm text-emerald-900">
+                <div className="space-y-3 text-sm text-emerald-900">
                     <label className="flex items-center gap-2 bg-white px-3 py-2 rounded shadow-sm opacity-50"><input type="checkbox" checked readOnly className="rounded text-emerald-600 focus:ring-emerald-500" /> KYC Completado</label>
-                    <label className="flex items-center gap-2 bg-white px-3 py-2 rounded shadow-sm"><input type="checkbox" className="rounded text-emerald-600 focus:ring-emerald-500" /> Contrato Firmado</label>
+                    <label className="flex items-center gap-2 bg-white px-3 py-2 rounded shadow-sm">
+                        <input
+                            type="checkbox"
+                            checked={lead.contract_details?.contract_signed === 'true'}
+                            onChange={(e) => onUpdateLead('contract_details', { ...lead.contract_details, contract_signed: e.target.checked ? 'true' : 'false' })}
+                            className="rounded text-emerald-600 focus:ring-emerald-500"
+                        />
+                        Contrato Firmado
+                    </label>
+
+                    <div className="bg-white px-3 py-2 rounded shadow-sm">
+                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1 block">Contract URL (PDF/Drive)</label>
+                        <input
+                            type="url"
+                            value={lead.contract_details?.contract_url || ''}
+                            onChange={(e) => onUpdateLead('contract_details', { ...lead.contract_details, contract_url: e.target.value })}
+                            className="w-full text-sm font-medium border-gray-200 rounded-lg bg-gray-50 focus:bg-white transition-colors py-1.5 px-3"
+                            placeholder="https://docs.google.com/..."
+                        />
+                    </div>
+
                     <label className="flex items-center gap-2 bg-white px-3 py-2 rounded shadow-sm"><input type="checkbox" className="rounded text-emerald-600 focus:ring-emerald-500" /> Primer Pago Verificado</label>
                 </div>
             </div>
