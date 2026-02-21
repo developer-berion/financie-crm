@@ -1,5 +1,27 @@
 # CHANGELOG
 
+## [2026-02-21] - Calendly Debugging & Test Coverage
+
+### Added
+- **Testing**: Implementación de 12 nuevos archivos de test (147 tests nuevos) cubriendo utilidades, hooks y componentes.
+- **Testing**: Suite completa de 299 tests (294 pasando), incluyendo verificación de firmas HMAC-SHA256 para Calendly y Meta.
+- **Testing**: Nuevos tests para `stage-gates`, `mockLeads`, `useDebounce`, `DealCard`, `RevenueForecast` y `DataIntegrityIndicator`.
+
+### Fixed
+- **Integration**: Diagnóstico de fallos en Calendly (local/staging): identificado bloqueo por CORS, falta de Edge Functions en staging y ausencia de `CALENDLY_API_TOKEN` en variables de entorno.
+- **Quality**: Cobertura extendida a la lógica de "Stagnation" (leads estancados) y cálculos de pipeline ponderado.
+
+## [2026-02-21] - Meta Ad Fields & Editable Dates
+
+### Added
+- **Database**: Nuevas columnas `wants_agent` (text) y `age_range` (text) en tabla `leads` para capturar datos del formulario Meta Ad.
+- **Frontend**: Campos "¿Te gustaría hablar con un agente?" (badge) y "Rango de Edad" (editable) en `QualificationPanel`.
+- **Frontend**: Campos de fecha y hora de registro editables en `LeadDetail`.
+
+### Changed
+- **QualificationPanel**: Grid expandido para acomodar nuevos campos Meta Ad.
+- **TypeScript**: Interface `Lead` actualizada con nuevos campos.
+
 ## [0.1.0] - 2026-02-14
 ### Added
 - **Feature**: Lead Notes with Edit History.

@@ -1,5 +1,16 @@
 # PROGRESS_LOG
 
+## 2026-02-21
+- **Hecho:**
+  - Depuración profunda de la integración de Calendly en entornos locales y staging.
+  - Implementación de unit tests para verificación de firmas Webhook (HMAC-SHA256).
+  - Creación de suite de pruebas para el Dashboard (Revenue Forecast, Upcoming Appointments).
+  - Implementación de 12 nuevos archivos de test unitarios, alcanzando 294 tests exitosos.
+  - Documentación de las causas raíz de los fallos de Calendly en `INTEGRATIONS_RUNBOOK.md`.
+- **Decisiones tomadas:** [Testing Exhaustivo y Diagnóstico de Integraciones]
+- **Bloqueos:** Ninguno.
+- **Próximo:** Despliegue en Vercel Staging y corrección de los 5 tests pre-existentes de constantes.
+
 ## 2026-01-21
 - **Hecho:**
   - Inicialización de documentación en `/docs`.

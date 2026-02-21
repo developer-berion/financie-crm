@@ -18,7 +18,7 @@ Este documento detalla la configuración operativa de las integraciones externas
   - Revisar `integration_logs` en DB.
   - Error común: Token expirado o permisos faltantes (`leads_retrieval`).
 
-## Calendly (Webhooks)
+## Calendly (Webhooks & API)
 - **Setup**:
   - Crear suscripción a webhook via API o Integrations panel.
   - Eventos: `invitee.created`, `invitee.canceled`.
@@ -26,11 +26,16 @@ Este documento detalla la configuración operativa de las integraciones externas
 - **Validación**:
   - Header `Calendly-Webhook-Signature` (HMAC-SHA256).
   - Signing Key en `CALENDLY_SIGNING_KEY`.
+- **Diagnóstico de Fallos (Local/Staging)**:
+  - **CORS**: `shared-utils.ts` restringe orígenes. Para pruebas locales, el middleware debe permitir orígenes de desarrollo.
+  - **Edge Functions**: Asegurarse de que `sync_calendly_events` esté desplegada en el proyecto de Staging.
+  - **Tokens**: La API requiere `CALENDLY_API_TOKEN` en la tabla `app_settings` o en los Secretos de Supabase.
 - **Datos Clave**:
   - `uri`: ID único de la cita.
   - `email` y `text_notification_phone_number` para mapear al Lead.
 - **Troubleshooting**:
   - Si no llega el webhook, verificar estado de suscripción en Calendly API.
+  - Usar los tests en `calendly-sync.test.ts` para validar cambios en la lógica de mapeo.
 
 ## ElevenLabs (Activo)
 - **Estado Actual**: ACTIVO (Producción).
