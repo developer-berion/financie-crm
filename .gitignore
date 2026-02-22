@@ -32,4 +32,7 @@ temp_env.txt
 debug_*.js
 check_*.js
 
-
+# Backup data (contains secrets)
+temp_data_backup/
+RESPALDO_*.sql
+.vercel/
