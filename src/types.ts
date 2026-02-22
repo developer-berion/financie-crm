@@ -20,6 +20,11 @@ export interface Lead {
   currency?: string;
   contact_attempts?: number;
   last_contact_attempt?: string;
+  last_interaction_at?: string; // New field
+  expected_close_date?: string | null;
+  priority?: 'High' | 'Medium' | 'Low';
+  billing_info?: any;
+  contract_details?: Record<string, any>;
   pipeline_stages?: { name: string } | { name: string }[] | null;
 }
 
@@ -46,4 +51,19 @@ export interface ConversationResult {
   summary: string | null;
   outcome: unknown;
   created_at: string;
+}
+
+export interface Task {
+  id: string;
+  lead_id: string | null;
+  type: string;
+  title: string;
+  due_at: string | null;
+  priority: 'low' | 'med' | 'high';
+  status: 'pending' | 'completed';
+  assigned_to?: string | null;
+  reminders_sent?: { '24h': boolean; '1h': boolean };
+  created_at: string;
+  completed_at: string | null;
+  leads?: { full_name: string };
 }

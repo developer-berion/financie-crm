@@ -1,0 +1,73 @@
+# Walkthrough - Vercel Migration & Environment Fixes
+
+## Goal
+Migrate Financie CRM to Vercel, ensuring strict environment isolation (Staging vs Prod) and fixing critical production bugs (SPA routing, redirects).
+
+## Changes
+
+### 1. Environment Isolation
+- **Feature**: Detected that local development was accidentally connecting to Production.
+- **Fix**: 
+  - Forced [.env.local](file:///C:/Users/victo/Berion%20Company%20Projects/financie-crm/.env.local) to use Staging Supabase credentials (`mgewvaujdsvnmaoulnwr`).
+  - Implemented `COMMUNICATIONS_ENABLED` flag to disable Twilio/ElevenLabs in local/staging.
+  - Updated [shared-utils.ts](file:///c:/Users/victo/Berion%20Company%20Projects/financie-crm/supabase/functions/shared-utils.ts) to respect `ALLOWED_ORIGINS` including `portal-staging`.
+
+### 2. Vercel Configuration
+- **Feature**: Comparison of [vercel.json](file:///c:/Users/victo/Berion%20Company%20Projects/financie-crm/vercel.json) and build settings.
+- **Fix**:
+  - Added SPA Rewrite rule: `source: "/(.*)" -> destination: "/index.html"`.
+  - This resolved the "404 on refresh" issue in production.
+
+### 3. Database Schema Synchronization
+- **Feature**: Staging DB was missing columns present in Production code.
+- **Fix**:
+  - Applied `alter table leads add column archived_at` to Staging.
+  - Applied [update_pipeline_stages.sql](file:///c:/Users/victo/Berion%20Company%20Projects/financie-crm/supabase/migrations/20260218_update_pipeline_stages.sql) to fix outdated seed data.
+
+### 4. Codebase Synchronization
+- **Feature**: Production (`origin/master`) had features ("Quick Add", "Breadcrumbs") missing in local `staging`.
+- **Fix**:
+  - Hard reset `staging` branch to match `origin/master`.
+  - Re-applied Staging-specific configurations (Environment variables, CORS).
+
+### 5. Deployment Governance
+- **New Rule**: "Staging First". All changes must be verified on Staging (`portal-staging`) before promotion to `master`.
+- **Artifacts**: Created [PLAN_DETALLADO_FASE_1.md](file:///c:/Users/victo/Berion%20Company%20Projects/financie-crm/.agent/skills/code-auditor/auditorias_realizadas/2026-02-17/PLAN_DETALLADO_FASE_1.md) and Audit Reports.
+
+### Phase 2: Security Audit & Remediation (Completed)
+
+Following the environment stabilization, a comprehensive security audit was conducted using the `crm_code_auditor_engineer_enterprise` skill.
+
+### Findings & Fixes
+| ID | Issue | Severity | Status | Fix |
+|---|---|---|---|---|
+| **CRM-001** | Secrets in Repo | Critical | ✅ Fixed | Removed [secrets.txt](file:///c:/Users/victo/Berion%20Company%20Projects/financie-crm/secrets.txt), updated [.gitignore](file:///c:/Users/victo/Berion%20Company%20Projects/financie-crm/.gitignore). |
+| **CRM-002** | N+1 Queries (Calendly) | Critical | ✅ Mitigated | Reduced fetch size to 10 (Quick Win). |
+| **CRM-003** | Brevo Resilience | High | ✅ Fixed | Implemented [fetchWithRetry](file:///c:/Users/victo/Berion%20Company%20Projects/financie-crm/supabase/functions/shared-utils.ts#406-430) (Exp. Backoff). |
+| **CRM-004** | No QA/Tests | High | ✅ Fixed | Added `npm run test:smoke` (CI-ready types check). |
+| **CRM-005** | No CI/CD | High | ✅ Fixed | Implemented GitHub Actions ([ci.yml](file:///c:/Users/victo/Berion%20Company%20Projects/financie-crm/.github/workflows/ci.yml)) pipeline. |
+| **CRM-006** | Dead Code | Medium | ✅ Fixed | Deleted 40+ unused scripts (`debug_*.js`). |
+
+### Artifacts Generated
+- [AUDIT_REPORT.md](file:///c:/Users/victo/Berion%20Company%20Projects/financie-crm/.agent/skills/code-auditor/auditorias_realizadas/2026-02-17/AUDIT_REPORT.md) (Initial Findings)
+- [INFORME_FINAL_REMEDIACION.md](file:///c:/Users/victo/Berion%20Company%20Projects/financie-crm/.agent/skills/code-auditor/auditorias_realizadas/18%20de%20febrero%202026/INFORME_FINAL_REMEDIACION.md) (Final Status)
+- [.github/workflows/ci.yml](file:///c:/Users/victo/Berion%20Company%20Projects/financie-crm/.github/workflows/ci.yml) (CI Pipeline)
+
+## Next Steps
+- Enable Branch Protection on `master`.
+- Deploy to Production via Vercel (following the new CI/CD flow).
+
+### 7. Final Environment Configuration
+- **Branch**: `stagingstaging` (Derived from `staging-backup-erroneo` + Audit Fixes).
+- **Database**: **Staging** (`mgewvaujdsvnmaoulnwr`).
+- **Status**: Code matches the "Live" features locally, but data comes from the Staging environment.
+- **Port**: Running on `http://localhost:5183`.
+
+### 8. Staging Branch Creation & Deployment
+- **Branch**: `staging` (Remote `origin/staging`).
+- **Contents**: 
+    - Full "Live" feature set (Quick Add, etc.).
+    - **Audit Phase 1 Security Fixes** (Secrets, Signatures, Logs).
+    - **Audit Phase 2 Reports** ([INVENTORY.md](file:///c:/Users/victo/Berion%20Company%20Projects/financie-crm/.agent/skills/code-auditor/auditorias_realizadas/18%20de%20febrero%202026/INVENTORY.md), [FINDINGS.json](file:///c:/Users/victo/Berion%20Company%20Projects/financie-crm/.agent/skills/code-auditor/auditorias_realizadas/18%20de%20febrero%202026/FINDINGS.json), [AUDIT_REPORT.md](file:///c:/Users/victo/Berion%20Company%20Projects/financie-crm/.agent/skills/code-auditor/auditorias_realizadas/2026-02-17/AUDIT_REPORT.md)).
+    - **CORS Update**: Added `portal-staging.financiegroup.com`.
+- **Status**: **PUSHED** to remote. Ready for Vercel/Supabase deployment.

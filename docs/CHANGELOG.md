@@ -1,5 +1,27 @@
 # CHANGELOG
 
+## [2026-02-21] - Calendly Debugging & Test Coverage
+
+### Added
+- **Testing**: Implementación de 12 nuevos archivos de test (147 tests nuevos) cubriendo utilidades, hooks y componentes.
+- **Testing**: Suite completa de 299 tests (294 pasando), incluyendo verificación de firmas HMAC-SHA256 para Calendly y Meta.
+- **Testing**: Nuevos tests para `stage-gates`, `mockLeads`, `useDebounce`, `DealCard`, `RevenueForecast` y `DataIntegrityIndicator`.
+
+### Fixed
+- **Integration**: Diagnóstico de fallos en Calendly (local/staging): identificado bloqueo por CORS, falta de Edge Functions en staging y ausencia de `CALENDLY_API_TOKEN` en variables de entorno.
+- **Quality**: Cobertura extendida a la lógica de "Stagnation" (leads estancados) y cálculos de pipeline ponderado.
+
+## [2026-02-21] - Meta Ad Fields & Editable Dates
+
+### Added
+- **Database**: Nuevas columnas `wants_agent` (text) y `age_range` (text) en tabla `leads` para capturar datos del formulario Meta Ad.
+- **Frontend**: Campos "¿Te gustaría hablar con un agente?" (badge) y "Rango de Edad" (editable) en `QualificationPanel`.
+- **Frontend**: Campos de fecha y hora de registro editables en `LeadDetail`.
+
+### Changed
+- **QualificationPanel**: Grid expandido para acomodar nuevos campos Meta Ad.
+- **TypeScript**: Interface `Lead` actualizada con nuevos campos.
+
 ## [0.1.0] - 2026-02-14
 ### Added
 - **Feature**: Lead Notes with Edit History.
@@ -7,6 +29,59 @@
     - Nueva UI en `LeadDetail` para gestión de notas con soporte de versiones.
     - Modal de edición con historial de cambios.
     - **Archiving**: Sistema de archivado y restauración de notas con vista dedicada.
+
+## [2026-02-20] - Task Management & Automated Reminders
+
+### Added
+- **Feature**: Manual Task Creation.
+    - Componente `TaskModal` para creación de tareas ad-hoc con asignación automática.
+    - Integración de botones "+ Nueva Tarea" en `LeadDetail` y página global de `Tasks`.
+    - Soporte para prioridad, fecha de vencimiento y tipos de tarea personalizados.
+- **Feature**: Automated Reminder Engine.
+    - Edge Function `task-reminders` para escaneo horario de tareas por vencer.
+    - Integración con Brevo para envío de recordatorios (24h y 1h antes del deadline).
+    - Cron Job en Supabase (`process-task-reminders`) para ejecución automatizada.
+- **Database**: 
+    - Nuevas columnas `assigned_to` y `reminders_sent` en la tabla `tasks`.
+    - Índice optimizado `idx_tasks_due_reminders` para escaneo de vencimientos.
+
+## [2026-02-20] - Pipeline Governance, Task Management & Audit
+
+### Added
+- **Feature**: Manual Task Creation.
+    - Nuevo modal premium `TaskModal.tsx` para creación rápida.
+    - Integración en `LeadDetail` y global `Tasks` page.
+- **Feature**: Automated Reminder Engine.
+    - Edge Function `task-reminders` con lógica de 24h/1h.
+    - Programación vía `pg_cron` cada hora.
+    - Emails transaccionales vía Brevo con branding corporativo.
+- **Audit**: Deep Code Audit (v1.0.0).
+    - Generación de `PRODUCT_AUDIT_REPORT.md` e `INVENTORY.md`.
+    - Identificación de riesgos críticos en RLS y Webhooks.
+
+### Improved
+- **Stability**: Optimización de `shared-utils.ts` con fetch retries y enmascaramiento de PII.
+- **UX**: Navegación mejorada en el Dashboard de Tareas.
+    - Database `BEFORE UPDATE` Trigger para asegurar la integridad de datos ('Propuesta' y 'Cerrado Ganado').
+    - Componente `StageGateModal` inyectando UI de requerimientos "Just-in-Time" para resolver conflictos pre-guardado.
+    - Interceptores en Kanban ("Ghost Drop" pattern) e íconos "Lock" explicativos en `KanbanHeader`.
+    - Actualizado `StageTracker` y `LateStageView` para permitir entrada orgánica de `contract_details` requeridos por las reglas.
+
+## [2026-02-20] - Smart Leads: Dynamic Layouts & Anti-Duplicate Engine
+
+### Added
+- **Feature**: Anti-Duplicate Engine.
+    - Detección asíncrona de duplicados usando `pg_trgm` (Exacto y 80%+ Fuzzy match).
+    - Nuevo `DataIntegrityIndicator` para UX asíncrona de revisión de datos.
+    - Componente `MergeConflictModal` para resolución de conflictos (Diff Before Apply).
+    - Prevención estricta en `LeadQuickAdd` de crear leads si un conflicto existe (fuerza la revisión/merge).
+- **Feature**: Dynamic Layouts (Stage-Specific UI).
+    - Introducidos `EarlyStageView`, `MidStageView` y `LateStageView` para modificar densidad visual basada en Stage.
+    - Componente interactivo `StageTracker` para navegar estados.
+    - Implementados campos de cabecera fijos ("Sticky header") para `Priority` y `Close Date`.
+
+### Changed
+- Configuración de la CLI de Supabase actualizada explícitamente a Staging.
 
 ## [2026-02-17] - Dashboard Restructuring & Real-Time Metrics
 

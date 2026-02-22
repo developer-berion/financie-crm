@@ -1,0 +1,27 @@
+# Implementation Plan: CI/CD Pipeline (CRM-005)
+
+## Goal
+Implement a robust CI/CD pipeline to ensure code quality and safe promotion from Staging to Production.
+
+## User Review Required
+> [!IMPORTANT]
+> You must manually configure **Branch Protection Rules** in GitHub for `master` after this task is complete to strictly enforce the pipeline. I will provide instructions.
+
+## Proposed Changes
+
+### [GitHub Actions]
+#### [NEW] [.github/workflows/ci.yml](file:///c:/Users/victo/Berion%20Company%20Projects/financie-crm/.github/workflows/ci.yml)
+- Creates a workflow that runs on:
+    - Push to `staging`
+    - Pull Request to `master`
+- Executes: `npm run test:smoke` (Type Checking)
+
+## Verification Plan
+
+### Automated
+- Push the new workflow to `staging`.
+- Verify the Action runs in the "Actions" tab of the GitHub repository.
+- Verify it passes (green check).
+
+### Manual
+- Simulate a PR from `staging` to `master` (optional) to see the check status.

@@ -74,9 +74,10 @@ serve(async (req) => {
     console.log(`Current user URI: ${userUri}`)
 
     // We'll fetch "active" events. Pagination matches 20 by default.
-    // TODO: Handle pagination if volume > 20. For now, fetch 100 max.
+    // We'll fetch "active" events. Pagination matches 20 by default.
+    // [CRM-002] CRITICAL: Reduced to 10 to avoid N+1 DB lockup until structural fix.
     console.log('Fetching Calendly events...')
-    const eventsResponse = await fetch(`${CALENDLY_API_BASE}/scheduled_events?user=${userUri}&status=active&count=100`, {
+    const eventsResponse = await fetch(`${CALENDLY_API_BASE}/scheduled_events?user=${userUri}&status=active&count=10`, {
         headers: {
             'Authorization': `Bearer ${calendlyToken}`,
             'Content-Type': 'application/json'

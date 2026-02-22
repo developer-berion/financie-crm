@@ -75,6 +75,23 @@ Controla la lógica de reintentos automáticos para llamadas.
 | `next_attempt_at` | `timestamptz` | YES | Fecha mínima para el próximo intento. |
 | `last_attempt_at` | `timestamptz` | YES | Fecha del último intento real. |
 
+### `tasks`
+Almacena las tareas automatizadas y manuales asociadas a leads.
+
+| Columna | Tipo | Nulable | Descripción |
+| :--- | :--- | :--- | :--- |
+| `id` | `uuid` | NO | PK. |
+| `lead_id` | `uuid` | YES | FK -> `leads.id`. |
+| `title` | `text` | NO | Título de la tarea. |
+| `type` | `text` | NO | Tipo (`research`, `call`, `follow-up`, etc.). |
+| `due_at` | `timestamptz` | YES | Fecha de vencimiento. |
+| `priority` | `text` | YES | `low`, `med`, `high`. |
+| `status` | `text` | NO | `pending`, `completed`. |
+| `assigned_to` | `uuid` | YES | FK -> `agentes.id`. Usuario responsable. |
+| `reminders_sent` | `jsonb` | YES | Log de recordatorios enviados (`{"1h": timestamp, "24h": timestamp}`). |
+| `created_at` | `timestamptz` | NO | Fecha de creación. |
+| `completed_at` | `timestamptz` | YES | Fecha de cumplimiento. |
+
 ### `jobs`
 Cola de tareas asíncronas para ejecución diferida o manual.
 
@@ -120,5 +137,6 @@ Logs técnicos de raw requests de webhooks (debugging).
 
 ## Relaciones Clave
 - `leads` (1) <-> (N) `lead_events`
+- `leads` (1) <-> (N) `tasks`
 - `leads` (1) <-> (N) `jobs`
 - `leads` (1) <-> (1) `call_schedules` (Relación lógica, usualmente 1 activo).

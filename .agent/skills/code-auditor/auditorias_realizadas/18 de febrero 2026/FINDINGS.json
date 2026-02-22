@@ -1,0 +1,198 @@
+[
+    {
+        "id": "CRM-001",
+        "domain": 2,
+        "domain_name": "Repo Sweep",
+        "title": "Archivos de secretos expuestos en la raíz del repositorio",
+        "severity": "critical",
+        "status": "confirmed",
+        "description": "Se encontraron archivos `secrets.txt` y `temp_env.txt` en la raíz del proyecto. Estos archivos suelen contener credenciales reales o de desarrollo que podrían ser expuestas si se suben al repositorio remoto.",
+        "impact": "Compromiso total del sistema (BD, Integraciones) si estos archivos llegan a un repo público o son accedidos por actores maliciosos.",
+        "root_cause": "Falta de higiene en el espacio de trabajo y `.gitignore` incompleto o ignorado durante desarrollo local.",
+        "evidence": {
+            "type": "code_snippet",
+            "reference": "root/secrets.txt, root/temp_env.txt",
+            "sanitized": true
+        },
+        "recommendation_quick_win": {
+            "action": "Agregar `secrets.txt` y `temp_env.txt` al `.gitignore` inmediatamente de manera global y eliminarlos del control de versiones si fueron commiteados.",
+            "effort": "1-3_days",
+            "risk_of_regression": "low",
+            "validation": "Verificar que `git status` ignore estos archivos."
+        },
+        "recommendation_structural": {
+            "action": "Implementar herramientas de 'secret scanning' en pre-commit hooks (e.g., git-secrets o talisman).",
+            "effort": "2-4_weeks",
+            "dependencies": [
+                "Configuración de CI/CD"
+            ],
+            "validation": "Commit con secreto simulado es bloqueado."
+        },
+        "kb_reference": "KB_02 §3 (Secret Scanning) y KB_05 §Secrets",
+        "owner_suggested": "DevOps / Tech Lead",
+        "plan_phase": "0-30_days"
+    },
+    {
+        "id": "CRM-002",
+        "domain": 3,
+        "domain_name": "Base de Datos",
+        "title": "Queries N+1 Críticas en Sincronización de Calendly",
+        "severity": "critical",
+        "status": "confirmed",
+        "description": "La función `sync_calendly_events` ejecuta queries a Supabase (`select` y `insert/update`) DENTRO de un bucle `for` que itera sobre eventos y luego sobre invitados. Esto genera una explosión combinatoria de llamadas a la base de datos.",
+        "impact": "Degradación severa de performance o timeouts durante sincronizaciones con múltiples eventos. Posible bloqueo de conexiones a la BD.",
+        "root_cause": "Patrón algorítmico ineficiente (iterative queries) en lugar de operaciones set-based (bulk).",
+        "evidence": {
+            "type": "code_snippet",
+            "reference": "supabase/functions/sync_calendly_events/index.ts (L99-206)",
+            "sanitized": true
+        },
+        "recommendation_quick_win": {
+            "action": "Limitar drásticamente la paginación de Calendly a 5-10 eventos por ejecución temporalmente.",
+            "effort": "1-3_days",
+            "risk_of_regression": "low",
+            "validation": "Monitoreo de tiempos de ejecución."
+        },
+        "recommendation_structural": {
+            "action": "Reescribir la lógica para usar `bulk insert/upsert` y `auth.users` join. Obtener todos los IDs necesarios en una sola query inicial.",
+            "effort": "2-4_weeks",
+            "dependencies": [
+                "Refactorización de Edge Function"
+            ],
+            "validation": "Benchmark de sincronización con 50 eventos."
+        },
+        "kb_reference": "KB_03 §2 (N+1 Queries) y KB_08 §Performance",
+        "owner_suggested": "Backend Lead",
+        "plan_phase": "0-30_days"
+    },
+    {
+        "id": "CRM-003",
+        "domain": 4,
+        "domain_name": "Integraciones",
+        "title": "Falta de Resiliencia en Integración Brevo (Sin Retries/DLQ)",
+        "severity": "high",
+        "status": "confirmed",
+        "description": "El envío de correos y sincronización de contactos (`syncContactToBrevo` en `shared-utils.ts`) usa bloques `try/catch` simples que loggean el error pero no reintentan. Fallos transitorios de red resultan en pérdida de datos de sincronización.",
+        "impact": "Inconsistencia de datos entre CRM y Brevo. Pérdida de leads calificados en campañas de email.",
+        "root_cause": "Implementación naive de llamadas HTTP sin patrón de resilencia.",
+        "evidence": {
+            "type": "code_snippet",
+            "reference": "supabase/functions/shared-utils.ts (L515)",
+            "sanitized": true
+        },
+        "recommendation_quick_win": {
+            "action": "Implementar un mecanismo simple de reintento (e.g., 3 intentos con delay fijo) dentro de la función.",
+            "effort": "1_week",
+            "risk_of_regression": "medium",
+            "validation": "Test unitario simulando fallo 503."
+        },
+        "recommendation_structural": {
+            "action": "Mover la sincronización a una arquitectura asíncrona usando Colas (Supabase Queues o PRowl) con DLQ.",
+            "effort": "1-2_months",
+            "dependencies": [
+                "Infraestructura de Colas"
+            ],
+            "validation": "Simulación de caída prolongada de Brevo API sin pérdida de datos."
+        },
+        "kb_reference": "KB_04 §Integraciones (Reliability patterns)",
+        "owner_suggested": "Backend Engineer",
+        "plan_phase": "0-30_days"
+    },
+    {
+        "id": "CRM-004",
+        "domain": 6,
+        "domain_name": "QA Inspection",
+        "title": "Ausencia de Test Suite Automatizado",
+        "severity": "high",
+        "status": "confirmed",
+        "description": "No se encontraron archivos de test (`*.test.ts`, `__tests__`) ni configuración de testing estructural en el proyecto. `vitest` está en dependencies pero no parece usarse activamente para lógica de negocio crítica.",
+        "impact": "Alto riesgo de regresiones en cada despliegue. Dependencia total de pruebas manuales, lo que es lento y propenso a errores.",
+        "root_cause": "Falta de cultura de testing o deuda técnica inicial priorizando velocidad.",
+        "evidence": {
+            "type": "process_document",
+            "reference": "Exploración de directorio raíz y functions",
+            "sanitized": true
+        },
+        "recommendation_quick_win": {
+            "action": "Crear un 'Smoke Test' básico que verifique que el build compila y las funciones principales cargan.",
+            "effort": "1_week",
+            "risk_of_regression": "low",
+            "validation": "Ejecución exitosa de `npm run test`."
+        },
+        "recommendation_structural": {
+            "action": "Implementar Tests Unitarios para `shared-utils` y Tests de Integración para el flujo de alta de Lead.",
+            "effort": "1-2_months",
+            "dependencies": [
+                "Setup de entorno de Test"
+            ],
+            "validation": "Cobertura > 50% en core logic."
+        },
+        "kb_reference": "KB_06 §QA Strategy",
+        "owner_suggested": "QA Engineer / Lead",
+        "plan_phase": "0-30_days"
+    },
+    {
+        "id": "CRM-005",
+        "domain": 10,
+        "domain_name": "Secure SDLC",
+        "title": "Falta de CI/CD Pipeline con Gates de Calidad",
+        "severity": "high",
+        "status": "confirmed",
+        "description": "No existe directorio `.github/workflows`, lo que indica que no hay automatización de linting, testing o seguridad (SAST) antes de integrar código.",
+        "impact": "Código inseguro o roto puede llegar a producción sin control. Dependencia de la disciplina manual del desarrollador.",
+        "root_cause": "Proyecto en etapa temprana o despliegue manual/cli directo.",
+        "evidence": {
+            "type": "config_export",
+            "reference": "Ausencia de .github/workflows",
+            "sanitized": true
+        },
+        "recommendation_quick_win": {
+            "action": "Configurar una GitHub Action básica que corra `npm run lint` y `npm run build` en cada PR.",
+            "effort": "1-3_days",
+            "risk_of_regression": "low",
+            "validation": "PR bloqueado si falla el lint."
+        },
+        "recommendation_structural": {
+            "action": "Implementar pipeline completo: Lint -> Test -> SAST -> Build -> Deploy Staging.",
+            "effort": "1-2_months",
+            "dependencies": [
+                "Tests automatizados"
+            ],
+            "validation": "Despliegues totalmente automatizados y verificados."
+        },
+        "kb_reference": "KB_11 §Secure SDLC",
+        "owner_suggested": "DevOps",
+        "plan_phase": "0-30_days"
+    },
+    {
+        "id": "CRM-006",
+        "domain": 2,
+        "domain_name": "Repo Sweep",
+        "title": "Acumulación de Scripts Temporales y Dead Code",
+        "severity": "medium",
+        "status": "confirmed",
+        "description": "Presencia de múltiples scripts 'temp_', 'fix_', 'debug_' en el repositorio (e.g., `temp_client.js`, `check_logs.js`).",
+        "impact": "Ruido en el repositorio, confusión para nuevos desarrolladores y posible riesgo de ejecutar scripts obsoletos que dañen datos.",
+        "root_cause": "Falta de limpieza post-debugging.",
+        "evidence": {
+            "type": "code_snippet",
+            "reference": "Listado de archivos root",
+            "sanitized": true
+        },
+        "recommendation_quick_win": {
+            "action": "Mover scripts útiles a una carpeta `tools/debug` y borrar los obsoletos.",
+            "effort": "1-3_days",
+            "risk_of_regression": "low",
+            "validation": "Repositorio limpio."
+        },
+        "recommendation_structural": {
+            "action": "Establecer política de 'Definition of Done' que incluya limpieza de artefactos de debug.",
+            "effort": "1_week",
+            "dependencies": [],
+            "validation": "Code Review checklist."
+        },
+        "kb_reference": "KB_02 §Dead Code",
+        "owner_suggested": "Dev Team",
+        "plan_phase": "31-60_days"
+    }
+]

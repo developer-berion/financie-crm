@@ -1,5 +1,16 @@
 # PROGRESS_LOG
 
+## 2026-02-21
+- **Hecho:**
+  - Depuración profunda de la integración de Calendly en entornos locales y staging.
+  - Implementación de unit tests para verificación de firmas Webhook (HMAC-SHA256).
+  - Creación de suite de pruebas para el Dashboard (Revenue Forecast, Upcoming Appointments).
+  - Implementación de 12 nuevos archivos de test unitarios, alcanzando 294 tests exitosos.
+  - Documentación de las causas raíz de los fallos de Calendly en `INTEGRATIONS_RUNBOOK.md`.
+- **Decisiones tomadas:** [Testing Exhaustivo y Diagnóstico de Integraciones]
+- **Bloqueos:** Ninguno.
+- **Próximo:** Despliegue en Vercel Staging y corrección de los 5 tests pre-existentes de constantes.
+
 ## 2026-01-21
 - **Hecho:**
   - Inicialización de documentación en `/docs`.
@@ -81,4 +92,44 @@
 45:     - Limpieza de `config.toml` (eliminación de funciones obsoletas).
 46:     - Verificación de Build y Unit Tests exitosa.
 47: - **Decisiones tomadas:** Se reactiva el despachador de llamadas tras verificar la estabilidad de la integración con ElevenLabs.
-48: - **Próximo:** Despliegue final y monitoreo de webhooks reales.
+- **Próximo:** Despliegue final y monitoreo de webhooks reales.
+
+## 2026-02-20
+- **Hecho:**
+    - Implementación de Stage-Specific UI (Dynamic Layouts) para Smart Leads: `StageTracker`, `EarlyStageView`, `MidStageView`, `LateStageView`.
+    - Implementación de Hooks (`useDuplicateDetector`, `useDebounce`) e Interfaz UI (`DataIntegrityIndicator`, `MergeConflictModal`) para el Motor Anti-Duplicados (Anti-Duplicate Engine).
+    - Creación de Migración SQL `20260220183546_add_deduplication_rpcs.sql` habilitando `pg_trgm`.
+    - Modificado `LeadQuickAdd` para interceptar duplicados e inyectar el conflict modal.
+- **Decisiones tomadas:** [Anti-Duplicate Engine con Diff Before Apply](./DECISIONS.md)
+- **Bloqueos:**
+    - El entorno de Staging (`mgewvaujdsvnmaoulnwr`) tenía el historial de migraciones corrupto/desincronizado con respecto a local. Se reparó con `repair --status applied/reverted`, sin embargo, la última migración falló al ser subida por conflictos previos en el historial de `supabase/migrations`.
+- **Próximo:**
+    - Subir el código a Git para no perder cambios de UI y SQL.
+    - Resolver limpiar/resetear la DB de Staging o hacer squash de migraciones para la correcta subida de los RPCs del Anti-Duplicate Engine.
+    - Testear el flujo E2E del Merge Conflict.
+
+## 2026-02-20 (Continuación)
+- **Hecho:**
+    - Implementación completa de "Pipeline Governance: Validation Rules (Stage Gates)".
+    - Creación de Migración SQL instalando un `BEFORE UPDATE` trigger en `leads` para asegurar data obligatoria ('Propuesta' -> valor > 0, 'Cerrado Ganado' -> contrato firmado/URL).
+    - Desarrollo Frontend de `StageGateModal.tsx` y motor en `lib/stage-gates.ts`.
+    - Integración de "Ghost Drops" y "Visual Gatekeepers" (íconos Lock) en `KanbanBoard`.
+    - Actualización de `StageTracker` en `LeadDetail` para interceptar cambios inválidos.
+    - Modificación de `LateStageView` para que componentes requieran los campos del `contract_details` JSONB.
+- **Próximo:** 
+    - Pruebas manuales E2E del sistema de Gates por parte del usuario.
+
+## 2026-02-20 (Task Management)
+- **Hecho:**
+    - Implementación completa de "Manual Task Creation" con `TaskModal.tsx`.
+    - Desarrollo del "Automated Reminder Engine" via Edge Function (`task-reminders`) y `pg_cron`.
+    - Actualización de esquema de DB (`tasks` table) y utilidades de email (`sendTaskReminderEmail`).
+    - Integración visual de creación de tareas en `LeadDetail` y `Tasks` page.
+- **Decisiones tomadas:** [Asignación Automática y Recordatorios de Doble Capa (24h/1h)](./DECISIONS.md)
+- **Bloqueos:** Ninguno.
+- **Próximo:** Commit a staging y despliegue final.
+
+## 2026-02-20 (Technical Audit)
+- **Hecho:** Ejecución de `scan_profundo`. Mapeo de inventario y flujos críticos. Generación de reporte de riesgos.
+- **Hallazgos:** Riesgos medios-altos en RLS de notas y autenticación de webhooks Meta.
+- **Próximo:** Aplicar parches de seguridad y documentación de remediación.

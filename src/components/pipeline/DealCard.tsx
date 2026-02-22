@@ -30,14 +30,14 @@ export default function DealCard({ lead, onAddNote }: DealCardProps) {
     const value = lead.estimated_value || 0;
     const formattedValue = new Intl.NumberFormat('en-US', {
         style: 'currency',
-        currency: lead.currency || 'USD',
+        currency: 'USD',
         minimumFractionDigits: 0,
         maximumFractionDigits: 0,
     }).format(value);
 
-    // Mock "Last Activity" for now, ideally this comes from DB
+    // stagnation logic (10 days)
     const lastActivity = lead.updated_at ? new Date(lead.updated_at) : new Date();
-    const isRotting = (new Date().getTime() - lastActivity.getTime()) > (7 * 24 * 60 * 60 * 1000); // 7 days
+    const isStagnant = (new Date().getTime() - lastActivity.getTime()) > (10 * 24 * 60 * 60 * 1000);
 
     const handleCall = (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -62,15 +62,17 @@ export default function DealCard({ lead, onAddNote }: DealCardProps) {
             {...attributes}
             {...listeners}
             className={cn(
-                "group relative p-3 rounded-lg border shadow-sm cursor-grab active:cursor-grabbing transition-all hover:shadow-md mb-2 bg-white",
-                isRotting ? "bg-slate-50 border-slate-200" : "border-slate-200",
+                "group relative p-3 rounded-lg border shadow-sm cursor-grab active:cursor-grabbing transition-all hover:shadow-md mb-2",
+                isStagnant
+                    ? "bg-red-50/50 border-red-300 ring-1 ring-red-300/20"
+                    : "bg-white border-slate-200",
                 isDragging ? "ring-2 ring-indigo-500 ring-offset-2 opacity-50 z-50" : ""
             )}
         >
             {/* Left Border Status Indicator */}
             <div className={cn(
                 "absolute left-0 top-3 bottom-3 w-1 rounded-r-full transition-colors",
-                value > 5000 ? "bg-emerald-500" : "bg-transparent group-hover:bg-slate-300"
+                value > 5000 ? "bg-emerald-500" : isStagnant ? "bg-red-500" : "bg-transparent group-hover:bg-slate-300"
             )} />
 
             <div className="pl-2">
