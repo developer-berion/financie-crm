@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## [2026-02-22] - Calendly Sync Optimization & Deduplication Fix
+
+### Fixed
+- **Integration**: Corregido error de sintaxis en el motor de deduplicación de Calendly (`payload->>uri`).
+- **Edge Functions**: Despliegue de `sync_calendly_events` con límite de 100 eventos y logging detallado.
+- **Database**: Limpieza de registros duplicados en `lead_events`.
+
 ## [2026-02-21] - Calendly Debugging & Test Coverage
 
 ### Added

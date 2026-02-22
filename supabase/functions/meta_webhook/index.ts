@@ -72,22 +72,22 @@ serve(async (req) => {
       const email = getField('email');
       const state = getField('state') || getField('region');
       
-      // Note: Terms are implicit if they submitted the form, but we can check if there's a specific field.
-      // Usually Meta doesn't send a "terms" field unless custom. We default to true if it comes from here.
+      // New Meta Fields Mapping
+      const wantsAgent = getField('¿Te gustaría hablar con un agente en español?') || getField('wants_agent');
+      const ageRange = getField('¿Cuál es tu rango de edad?') || getField('age_range');
+      
+      // Note: Terms are implicit if they submitted the form
       const termsAccepted = true; 
       const metaCreatedAt = leadData.created_time || new Date().toISOString(); 
       const context = getLeadContext(state, metaCreatedAt);
 
       if (!phone) {
-        // Without phone, we can't reliably process call logic (or strict constraint)
-        // We insert anyway but mark as Check
+        // Without phone, we can't reliably process call logic
       }
 
       // Upsert by phone (deduplication)
-      // CRM-006: Check existing by meta_lead_id FIRST (idempotency)
       let existingLead = null;
       
-      // Primary dedup: by meta_lead_id (exact match, prevents duplicate webhook processing)
       const { data: leadByMetaId } = await supabase
         .from('leads')
         .select('*')
@@ -97,7 +97,6 @@ serve(async (req) => {
       if (leadByMetaId) {
         existingLead = leadByMetaId;
       } else if (phone) {
-        // Secondary dedup: by phone number (prevents different leads with same phone)
         const { data: leadByPhone } = await supabase
           .from('leads')
           .select('*')
@@ -117,7 +116,9 @@ serve(async (req) => {
             state: state,
             meta_created_at: metaCreatedAt,
             signup_date: context.signup_date,
-            signup_time: context.signup_time
+            signup_time: context.signup_time,
+            wants_agent: wantsAgent,
+            age_range: ageRange
         }).eq('id', leadId);
       } else {
         const { data: newLead, error: insertError } = await supabase.from('leads').insert({
@@ -131,7 +132,9 @@ serve(async (req) => {
             terms_accepted: termsAccepted,
             meta_created_at: metaCreatedAt,
             signup_date: context.signup_date,
-            signup_time: context.signup_time
+            signup_time: context.signup_time,
+            wants_agent: wantsAgent,
+            age_range: ageRange
         }).select().single();
         
         if (insertError) throw insertError;

@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { corsHeaders } from '../shared-utils.ts'
+import { corsHeaders, safeLog } from '../shared-utils.ts'
 
 // Configuration
 const CALENDLY_API_BASE = 'https://api.calendly.com'
@@ -24,6 +24,12 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
+
+  const startTime = Date.now();
+  let eventsProcessed = 0;
+  let matchesFound = 0;
+  let updatesMade = 0;
+  let errors: string[] = [];
 
   try {
     // 1. Initialize Supabase Client
@@ -56,7 +62,6 @@ serve(async (req) => {
     }
 
     // 2. Fetch Active Events from Calendly
-    // First, get current user URI
     console.log('Fetching Calendly user URI...')
     const userResponse = await fetch(`${CALENDLY_API_BASE}/users/me`, {
         headers: {
@@ -73,11 +78,9 @@ serve(async (req) => {
     const userUri = userData.resource.uri
     console.log(`Current user URI: ${userUri}`)
 
-    // We'll fetch "active" events. Pagination matches 20 by default.
-    // We'll fetch "active" events. Pagination matches 20 by default.
-    // [CRM-002] CRITICAL: Reduced to 10 to avoid N+1 DB lockup until structural fix.
+    // Increased count to 100 to avoid missing events.
     console.log('Fetching Calendly events...')
-    const eventsResponse = await fetch(`${CALENDLY_API_BASE}/scheduled_events?user=${userUri}&status=active&count=10`, {
+    const eventsResponse = await fetch(`${CALENDLY_API_BASE}/scheduled_events?user=${userUri}&status=active&count=100`, {
         headers: {
             'Authorization': `Bearer ${calendlyToken}`,
             'Content-Type': 'application/json'
@@ -91,15 +94,11 @@ serve(async (req) => {
 
     const eventsData = await eventsResponse.json()
     const events = eventsData.collection || []
+    eventsProcessed = events.length;
     console.log(`Found ${events.length} active events.`)
-
-    let updatedCount = 0
-    let matchCount = 0
 
     // 3. Process each event
     for (const event of events) {
-        // Fetch Invitees for this event to get the email
-        // event.uri looks like: https://api.calendly.com/scheduled_events/UUID
         const inviteesUrl = `${event.uri}/invitees`
         const inviteesResponse = await fetch(inviteesUrl, {
             headers: {
@@ -109,17 +108,17 @@ serve(async (req) => {
         })
 
         if (!inviteesResponse.ok) {
-            console.error(`Failed to fetch invitees for event ${event.uri}`)
+            const err = `Failed to fetch invitees for event ${event.uri}: ${inviteesResponse.status}`;
+            console.error(err)
+            errors.push(err);
             continue
         }
 
         const inviteesData = await inviteesResponse.json()
         const invitees = inviteesData.collection || []
 
-        // Usually 1 invitee for 1-on-1 calls
         for (const invitee of invitees) {
-            const email = invitee.email
-
+            const email = invitee.email?.toLowerCase()
             if (!email) continue
 
             // --- 4. Match AGENTS ---
@@ -145,38 +144,32 @@ serve(async (req) => {
                         })
                         .eq('id', agent.id)
                     
-                    if (updateError) console.error(`Failed to update agent ${agent.id}:`, updateError)
-                    else {
+                    if (updateError) {
+                        const err = `Failed to update agent ${agent.id}: ${updateError.message}`;
+                        console.error(err)
+                        errors.push(err);
+                    } else {
                         console.log(`Updated agent ${agent.id} with new event ${event.uri}`)
-                        updatedCount++
+                        updatesMade++
                     }
                 }
-                matchCount++
+                matchesFound++
             }
 
             // --- 5. Match LEADS ---
-            // Only process if status is active (or maybe we want canceled too? let's stick to all and filter in UI)
-            // Actually API query was filtered by status=active. So these are active events.
-            
             const { data: leads } = await supabase
                 .from('leads')
-                .select('id')
+                .select('id, full_name')
                 .eq('email', email)
 
             if (leads && leads.length > 0) {
                 for (const lead of leads) {
-                    // Check if event already exists in lead_events
-                    // We assume payload->>'uri' holds the ID
                     const { data: existingEvents } = await supabase
                         .from('lead_events')
                         .select('id')
                         .eq('lead_id', lead.id)
                         .eq('event_type', 'appointment.scheduled')
-                        .filter('payload->uri', 'eq', event.uri) 
-                    
-                    // Note: Supabase JSON filtering syntax might vary. using .contains is safer for some JSONB
-                    // But let's fetch checking overlap. Since we don't have a unique constraint on (lead_id, uri) in DB (yet),
-                    // we must check manually.
+                        .eq('payload->>uri', event.uri) 
                     
                     if (!existingEvents || existingEvents.length === 0) {
                         const payload = {
@@ -194,22 +187,41 @@ serve(async (req) => {
                             })
 
                         if (insertError) {
-                            console.error(`Failed to insert lead_event for lead ${lead.id}:`, insertError)
+                            const err = `Failed to insert lead_event for lead ${lead.id}: ${insertError.message}`;
+                            console.error(err)
+                            errors.push(err);
                         } else {
-                            console.log(`Inserted appointment for lead ${lead.id}`)
-                            updatedCount++
+                            console.log(`Inserted appointment for lead ${lead.id} (${lead.full_name})`)
+                            updatesMade++
                         }
                     }
                 }
-                matchCount++
+                matchesFound++
             }
         }
     }
 
+    const duration = Date.now() - startTime;
+    const summary = `Sync complete. Found ${eventsProcessed} events, matched ${matchesFound} records, updated ${updatesMade}. Total time: ${duration}ms.`;
+    
+    // Log to integration_logs for visibility in CRM
+    await supabase.from('integration_logs').insert({
+        provider: 'calendly',
+        status: errors.length > 0 ? 'partial_success' : 'success',
+        message_safe: summary,
+        payload_ref: { 
+            events_fetched: eventsProcessed,
+            matches: matchesFound,
+            updates: updatesMade,
+            duration_ms: duration,
+            errors: errors.slice(0, 10) // Limit error collection
+        }
+    });
+
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: `Sync complete. Found ${events.length} events, matched ${matchCount} agents, updated ${updatedCount} records.` 
+        message: summary
       }),
       { 
         headers: { ...corsHeaders, "Content-Type": "application/json" } 
@@ -217,6 +229,24 @@ serve(async (req) => {
     )
   } catch (error) {
     console.error('Error in syncCalendlyEvents:', error)
+    
+    // Attempt to log failure
+    try {
+        const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
+        const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+        if (supabaseUrl && supabaseKey) {
+            const supabase = createClient(supabaseUrl, supabaseKey)
+            await supabase.from('integration_logs').insert({
+                provider: 'calendly',
+                status: 'failure',
+                message_safe: `Sync failed: ${getErrorMessage(error).substring(0, 500)}`,
+                payload_ref: { error: getErrorMessage(error) }
+            });
+        }
+    } catch (logErr) {
+        console.error('Failed to log sync error to DB:', logErr)
+    }
+
     return new Response(
       JSON.stringify({ success: false, error: getErrorMessage(error) }),
       { 
