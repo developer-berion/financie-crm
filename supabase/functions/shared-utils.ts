@@ -208,6 +208,25 @@ export function getSupabaseClient() {
   )
 }
 
+/**
+ * Normalizes a phone number to E.164-ish format (+XX...)
+ * Removes non-numeric characters and ensures + prefix.
+ * If 10 digits are provided without +, assumes US (+1).
+ */
+export function normalizePhone(phone: string): string {
+    if (!phone) return '';
+    let cleaned = phone.replace(/[^\d+]/g, '');
+    
+    if (!cleaned.startsWith('+')) {
+        if (cleaned.length === 10) {
+            cleaned = '+1' + cleaned;
+        } else if (cleaned.length > 10) {
+            cleaned = '+' + cleaned;
+        }
+    }
+    return cleaned;
+}
+
 export async function verifyMetaSignature(payload: string, signature: string, secret: string): Promise<boolean> {
    if (!signature) return false;
    const encoder = new TextEncoder();
