@@ -10,6 +10,7 @@
     "scan:secrets": "node scripts/security/check-secrets.js",
     "verify:staging-target": "node scripts/security/verify-staging-target.js",
     "validate:post-rotation": "node scripts/security/validate-post-rotation.js",
+    "validate:notion-workflow": "node scripts/notion-mcp/validate_financie_board_workflow.js",
     "test": "vitest",
     "test:smoke": "tsc -b && echo 'Frontend compiled successfully.'",
     "preview": "vite preview"

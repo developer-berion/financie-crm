@@ -3,6 +3,11 @@
 ## Objetivo
 CRM Interno minimalista para 1 Agente de Seguros, optimizado para gestionar leads de Meta Ads y citas de Calendly con un principio de "Traza de Auditoría Total" (Event Sourcing light).
 
+## Flujo Operativo Oficial
+- Estandar de ejecucion en Notion: `docs/processes/NOTION_WORKFLOW_STANDARD_2026.md`
+- Plantilla obligatoria de ticket: `docs/templates/NOTION_TICKET_TEMPLATE.md`
+- Validador automatico del tablero: `npm run validate:notion-workflow` (requiere `NOTION_API_KEY`)
+
 ## Alcance (MVP)
 > **Documentación Técnica Detallada:**
 > - [Arquitectura](ARCHITECTURE_SPEC.md)

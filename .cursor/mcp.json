@@ -1,5 +1,17 @@
 {
     "mcpServers": {
+        "supabase-staging": {
+            "command": "npx.cmd",
+            "args": [
+                "-y",
+                "@supabase/mcp-server-supabase",
+                "--project-ref",
+                "mgewvaujdsvnmaoulnwr"
+            ],
+            "env": {
+                "SUPABASE_ACCESS_TOKEN": "${SUPABASE_ACCESS_TOKEN}"
+            }
+        },
         "stitch": {
             "command": "npx",
             "args": [
@@ -9,6 +21,15 @@
             ],
             "env": {
                 "STITCH_PROJECT_ID": "pdf-to-markdown-483017"
+            }
+        },
+        "notion": {
+            "command": "node",
+            "args": [
+                "c:/Users/victo/Berion Company Projects/financie-crm/scripts/notion-mcp/index.js"
+            ],
+            "env": {
+                "NOTION_API_KEY": "${NOTION_API_KEY}"
             }
         }
     }
