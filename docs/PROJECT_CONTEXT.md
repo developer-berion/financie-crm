@@ -21,7 +21,7 @@ CRM Interno minimalista para 1 Agente de Seguros, optimizado para gestionar lead
 - **Fuera de Alcance:**
   - Multi-tenancy (múltiples usuarios).
   - Sign-up público.
-  - Integración real de voz (ElevenLabs Activo y Configurado).
+  - Integración de voz activa en runtime (actualmente desactivada por flag de comunicaciones).
   - Lógica de parada automática si se confirma agenda en llamada.
   - Recuperación de transcripciones desde API si faltan en webhook.
   - Pagos/Facturación.
@@ -45,6 +45,17 @@ CRM Interno minimalista para 1 Agente de Seguros, optimizado para gestionar lead
 - **Backend**: Supabase (Postgres, Auth, Edge Functions). NO Node.js server.
 - **Hosting**: Hostinger (Plan compartido/cloud) sirviendo archivos estáticos (SPA).
 - **Base de Datos**: Supabase Free Tier.
+
+## Estado Operativo (2026-02-27)
+- Proyecto staging activo: `mgewvaujdsvnmaoulnwr`.
+- Flag de comunicaciones en staging: `ENABLE_TWILIO_ELEVENLABS=false`.
+- Resultado operativo esperado:
+  - `elevenlabs_webhook` devuelve `202` en modo desactivado.
+  - `system_integrity` reporta ElevenLabs/Twilio como `SKIPPED`.
+- Validación oficial: `npm run validate:post-rotation`.
+- Referencias:
+  - `docs/SECURITY_POST_ROTATION_VALIDATION.md`
+  - `docs/reports/P0_SECURITY_EXECUTION_2026-02-27.md`
 
 ## Glosario de Estados/Etapas
 - **Status (Lead)**: `Nuevo`, `En contacto automático`, `Contactado`, `No contactado`, `Cita agendada`, `Requiere seguimiento`, `No interesado`, `Cerrado ganado`, `Duplicado`.
