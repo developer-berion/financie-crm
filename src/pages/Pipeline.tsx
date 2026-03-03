@@ -27,6 +27,43 @@ import NoteModal from '../components/NoteModal';
 import { validateLeadStageGate } from '../lib/stage-gates';
 import { StageGateModal } from '../components/pipeline/StageGateModal';
 
+type SupabaseErrorLike = {
+    message?: string;
+    details?: string;
+    hint?: string;
+    code?: string;
+};
+
+function normalizeSupabaseError(error: unknown): SupabaseErrorLike {
+    if (error && typeof error === 'object') {
+        const maybe = error as SupabaseErrorLike;
+        return {
+            message: maybe.message,
+            details: maybe.details,
+            hint: maybe.hint,
+            code: maybe.code,
+        };
+    }
+    return { message: String(error) };
+}
+
+function extractMissingFields(error: SupabaseErrorLike): string[] {
+    const source = [error.message, error.details, error.hint].filter(Boolean).join(' ');
+    const marker = 'MISSING_FIELDS:';
+    const index = source.indexOf(marker);
+    if (index === -1) return [];
+    return source
+        .slice(index + marker.length)
+        .split(',')
+        .map((field) => field.trim())
+        .filter(Boolean);
+}
+
+function hasMissingApiKey(error: SupabaseErrorLike): boolean {
+    const source = [error.message, error.details, error.hint].filter(Boolean).join(' ').toLowerCase();
+    return source.includes('no api key found');
+}
+
 // Column Component
 function KanbanColumn({ stage, leads, onAddNote }: { stage: PipelineStage; leads: Lead[]; onAddNote: (lead: Lead) => void }) {
     const { setNodeRef } = useDroppable({ id: stage.id });
@@ -182,8 +219,32 @@ export default function Pipeline() {
             });
 
         } catch (error) {
-            console.error("Failed to move deal", error);
-            toast.error('Error al mover el deal');
+            const normalizedError = normalizeSupabaseError(error);
+            console.error("Failed to move deal", {
+                leadId,
+                targetStageId,
+                ...normalizedError,
+            });
+
+            const backendMissingFields = extractMissingFields(normalizedError);
+            if (backendMissingFields.length > 0) {
+                setGateModalState({
+                    isOpen: true,
+                    lead: currentLead,
+                    targetStageId,
+                    targetStageName,
+                    missingFields: backendMissingFields
+                });
+                toast.warning('Faltan campos requeridos para mover el deal');
+                setLeads(originalLeads); // Rollback before modal flow
+                return;
+            }
+
+            if (hasMissingApiKey(normalizedError)) {
+                toast.error('Configuracion invalida en staging: falta API key de Supabase en el deploy');
+            } else {
+                toast.error('Error al mover el deal');
+            }
             setLeads(originalLeads); // Rollback
         }
     }
@@ -220,8 +281,18 @@ export default function Pipeline() {
             });
 
         } catch (error) {
-            console.error("Failed to move deal after gates", error);
-            toast.error('Error al mover el deal tras rellenar campos');
+            const normalizedError = normalizeSupabaseError(error);
+            console.error("Failed to move deal after gates", {
+                leadId: lead.id,
+                targetStageId,
+                ...normalizedError,
+            });
+
+            if (hasMissingApiKey(normalizedError)) {
+                toast.error('Configuracion invalida en staging: falta API key de Supabase en el deploy');
+            } else {
+                toast.error('Error al mover el deal tras rellenar campos');
+            }
             setLeads(originalLeads); // Rollback
         }
     };
