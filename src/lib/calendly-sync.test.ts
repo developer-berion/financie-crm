@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 describe('Calendly Sync Logic', () => {
     it('documents failure when token is missing', () => {
@@ -8,7 +8,8 @@ describe('Calendly Sync Logic', () => {
 
     it('documents failure when origin is localhost', () => {
         const origin = 'http://localhost:5173';
-        const isAllowed = origin === 'https://crm.financiegroup.com';
+        const allowedOrigins = ['https://portal.financiegroup.com', 'https://portal-staging.financiegroup.com'];
+        const isAllowed = allowedOrigins.includes(origin);
         expect(isAllowed).toBe(false);
     });
 });

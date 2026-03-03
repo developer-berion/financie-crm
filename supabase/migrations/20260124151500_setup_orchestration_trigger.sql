@@ -1,23 +1,29 @@
 -- Migration: 20260124151500_setup_orchestration_trigger.sql
--- Description: Create a trigger to call the orchestrate_lead function on lead insert
+-- Description: Create a trigger to call orchestrate_lead on lead insert
 
--- 1. Enable pg_net for HTTP requests
 CREATE EXTENSION IF NOT EXISTS pg_net;
 
--- 2. Create the trigger function
 CREATE OR REPLACE FUNCTION public.tr_orchestrate_new_lead()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_catalog
+AS $$
+DECLARE
+  v_supabase_url text := nullif(current_setting('app.settings.supabase_url', true), '');
+  v_service_role_key text := nullif(current_setting('app.settings.service_role_key', true), '');
 BEGIN
-  -- We use the net.http_post from pg_net to call our Edge Function asynchronously
-  -- We need the SUPABASE_URL and SERVICE_ROLE_KEY to call it securely.
-  -- In Supabase, we can use the project-specific URL.
-  -- Note: Replace [PROJECT_ID] with the actual ID.
-  
+  IF v_supabase_url IS NULL OR v_service_role_key IS NULL THEN
+    RAISE NOTICE 'Skipping orchestrate_lead dispatch: app.settings.supabase_url/service_role_key not configured.';
+    RETURN NEW;
+  END IF;
+
   PERFORM net.http_post(
-    url := 'https://cnkwnynujtyfslafsmug.supabase.co/functions/v1/orchestrate_lead',
+    url := v_supabase_url || '/functions/v1/orchestrate_lead',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
-      'Authorization', 'Bearer ' || current_setting('app.settings.service_role_key', true)
+      'Authorization', 'Bearer ' || v_service_role_key,
+      'x-correlation-id', 'db-trigger:tr_orchestrate_new_lead'
     ),
     body := jsonb_build_object(
       'type', 'INSERT',
@@ -28,21 +34,10 @@ BEGIN
 
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
--- 3. The Trigger
 DROP TRIGGER IF EXISTS tr_orchestrate_new_lead ON public.leads;
 CREATE TRIGGER tr_orchestrate_new_lead
 AFTER INSERT ON public.leads
 FOR EACH ROW
 EXECUTE FUNCTION public.tr_orchestrate_new_lead();
-
--- 4. Note on app.settings.service_role_key
--- We need to ensure the service role key is available to the SQL environment.
--- Since we can't easily pass it via migration without knowing it, 
--- we can alternatively use a Webhook created via Supabase Dashboard UI 
--- or use a pre-set variable.
--- For this environment, I will assume the user has set the secret or I will use a different approach.
-
--- ALTERNATIVE: Use Supabase Hooks (if available via CLI/UI)
--- But for now, I'll provide the SQL structure.

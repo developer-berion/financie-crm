@@ -1,5 +1,5 @@
--- Migration: 20260125154000_enable_cron_scheduler.sql
--- Description: Enable pg_cron and schedule process_jobs using environment settings
+-- Migration: 20260129_fix_cron_auth.sql
+-- Description: Re-issue process_jobs cron with secure runtime settings (no hardcoded secrets)
 
 CREATE EXTENSION IF NOT EXISTS pg_cron;
 CREATE EXTENSION IF NOT EXISTS pg_net;
@@ -18,7 +18,7 @@ BEGIN
   END;
 
   IF v_supabase_url IS NULL OR v_service_role_key IS NULL THEN
-    RAISE NOTICE 'Skipping process_jobs schedule: app.settings.supabase_url/service_role_key not configured.';
+    RAISE NOTICE 'Skipping process_jobs cron auth fix: missing app.settings.supabase_url/service_role_key.';
     RETURN;
   END IF;
 
@@ -38,9 +38,5 @@ BEGIN
     'Bearer ' || v_service_role_key
   );
 
-  PERFORM cron.schedule(
-    'process-jobs-every-minute',
-    '* * * * *',
-    v_command
-  );
+  PERFORM cron.schedule('process-jobs-every-minute', '* * * * *', v_command);
 END $$;

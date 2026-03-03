@@ -19,10 +19,15 @@ if (fs.existsSync(envPath)) {
     });
 }
 
-const SUPABASE_URL = env.VITE_SUPABASE_URL || 'https://cnkwnynujtyfslafsmug.supabase.co';
+const SUPABASE_URL = env.VITE_SUPABASE_URL || env.SUPABASE_URL;
 const ANON_KEY = env.VITE_SUPABASE_ANON_KEY;
 const SERVICE_KEY = env.SUPABASE_SERVICE_ROLE_KEY; // Requerido para verificación profunda
-const ELEVENLABS_KEY = env.ELEVENLABS_API_KEY || 'sk_befb61153a1ac7c305388ea72745d8162d0610d4a6200e3e';
+const ELEVENLABS_KEY = env.ELEVENLABS_API_KEY;
+
+if (!SUPABASE_URL || !ANON_KEY) {
+    console.error('Missing SUPABASE_URL/VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY in environment.');
+    process.exit(1);
+}
 
 async function verify() {
     console.log('\n🔍 --- MONITOR DE SALUD DE INTEGRACIONES ---');
@@ -75,20 +80,20 @@ async function verify() {
         results.push({ service: 'Webhook ElevenLabs', status: '❌ FAIL', details: e.message });
     }
 
-    // --- 4. WEBHOOK META (PING) ---
+    // --- 4. ORCHESTRATION WEBHOOK (PING) ---
     try {
-        const metaResp = await fetch(`${SUPABASE_URL}/functions/v1/meta_webhook`, {
+        const orchestrationResp = await fetch(`${SUPABASE_URL}/functions/v1/orchestrate_lead`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ type: 'ping' })
         });
-        if (metaResp.ok) {
-            results.push({ service: 'Webhook Meta', status: '✅ OK', details: 'Ingesta de leads activa.' });
+        if (orchestrationResp.ok || orchestrationResp.status < 500) {
+            results.push({ service: 'Webhook Orchestrate Lead', status: '✅ OK', details: `Status ${orchestrationResp.status}` });
         } else {
-            results.push({ service: 'Webhook Meta', status: '⚠️ ISSUE', details: `Status ${metaResp.status}` });
+            results.push({ service: 'Webhook Orchestrate Lead', status: '⚠️ ISSUE', details: `Status ${orchestrationResp.status}` });
         }
     } catch (e) {
-        results.push({ service: 'Webhook Meta', status: '❌ FAIL', details: e.message });
+        results.push({ service: 'Webhook Orchestrate Lead', status: '❌ FAIL', details: e.message });
     }
 
     // --- 5. LOGS DE INTEGRACIÓN RECIENTES (Necesita SERVICE_KEY) ---

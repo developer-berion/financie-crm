@@ -2,11 +2,11 @@
 import { createClient } from '@supabase/supabase-js';
 
 // Load env vars if possible, or use defaults from shared utils
-const SUPABASE_URL = process.env.SUPABASE_URL || 'https://cnkwnynujtyfslafsmug.supabase.co';
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
 
-if (!SUPABASE_KEY) {
-    console.error('Error: SUPABASE_SERVICE_ROLE_KEY or SUPABASE_KEY environment variable is required to run this script safely.');
+if (!SUPABASE_URL || !SUPABASE_KEY) {
+    console.error('Error: SUPABASE_URL/VITE_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY or SUPABASE_KEY are required to run this script safely.');
     console.error('Usage: SUPABASE_SERVICE_ROLE_KEY=... node verify_signup_trigger.js');
     process.exit(1);
 }

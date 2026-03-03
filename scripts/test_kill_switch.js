@@ -1,6 +1,10 @@
 import fetch from 'node-fetch';
 
-const BASE_URL = 'https://cnkwnynujtyfslafsmug.supabase.co/functions/v1';
+const BASE_URL = process.env.SUPABASE_FUNCTIONS_BASE_URL;
+
+if (!BASE_URL) {
+    throw new Error('Missing SUPABASE_FUNCTIONS_BASE_URL. Example: https://<project-ref>.supabase.co/functions/v1');
+}
 
 async function testKillSwitch() {
     console.log('--- Testing Kill Switch ---');

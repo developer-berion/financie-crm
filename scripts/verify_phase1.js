@@ -1,8 +1,11 @@
 import fetch from 'node-fetch';
 
 // Base URL for Supabase Edge Functions
-// Replace with your actual project URL or use localhost if running locally
-const BASE_URL = 'https://cnkwnynujtyfslafsmug.supabase.co/functions/v1';
+const BASE_URL = process.env.SUPABASE_FUNCTIONS_BASE_URL;
+
+if (!BASE_URL) {
+    throw new Error('Missing SUPABASE_FUNCTIONS_BASE_URL. Example: https://<project-ref>.supabase.co/functions/v1');
+}
 
 async function testFunction(name, payload, headers, expectedStatus) {
     const url = `${BASE_URL}/${name}`;
