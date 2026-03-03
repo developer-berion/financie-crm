@@ -1,9 +1,13 @@
 
 import https from 'https';
 
-const API_KEY = 'sk_befb61153a1ac7c305388ea72745d8162d0610d4a6200e3e';
-const AGENT_ID = 'agent_4101kf6gqfgpfrganck3s1m0ap3v';
-const PHONE_ID = 'phnum_8001kfraqzk9f9rs3zv1ett3wqqe';
+const API_KEY = process.env.ELEVENLABS_API_KEY;
+const AGENT_ID = process.env.ELEVENLABS_AGENT_ID;
+const PHONE_ID = process.env.ELEVENLABS_PHONE_ID || process.env.ELEVENLABS_PHONE_NUMBER_ID;
+
+if (!API_KEY || !AGENT_ID || !PHONE_ID) {
+    throw new Error('Missing ELEVENLABS_API_KEY, ELEVENLABS_AGENT_ID or ELEVENLABS_PHONE_ID environment variable.');
+}
 
 function testCall() {
     const payload = JSON.stringify({

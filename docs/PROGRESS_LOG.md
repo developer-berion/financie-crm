@@ -1,5 +1,21 @@
 # PROGRESS_LOG
 
+## 2026-02-27
+- **Hecho:**
+  - Implementación de validador operativo `validate:post-rotation` con chequeos de guardrail, secretos, REST, `system_integrity` y revisión de errores auth recientes.
+  - Desactivación explícita de comunicaciones IA en staging mediante `ENABLE_TWILIO_ELEVENLABS=false`.
+  - Ajuste de funciones para modo desactivado:
+    - `elevenlabs_webhook` devuelve `202` (skipped) en vez de `500`.
+    - `system_integrity` marca ElevenLabs/Twilio como `SKIPPED` cuando corresponde.
+  - Actualización de llaves locales de staging en `.env.local` (`VITE_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`) para eliminar drift.
+  - Deploy a staging de `elevenlabs_webhook` y `system_integrity`.
+  - Registro de evidencia en ClickUp y cierre de subtask `86e02z672` (status `complete`).
+- **Resultados:**
+  - `npm run validate:post-rotation` en PASS para checks críticos.
+  - ElevenLabs deja de generar falso incidente operativo mientras está fuera de alcance.
+- **Próximo:**
+  - Continuar con P0 de rotación completa y verificación de consumidores externos remanentes.
+
 ## 2026-02-21
 - **Hecho:**
   - Depuración profunda de la integración de Calendly en entornos locales y staging.

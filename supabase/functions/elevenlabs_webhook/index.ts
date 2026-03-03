@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { corsHeaders, getSupabaseClient, verifyElevenLabsSignature, safeLog } from "../shared-utils.ts";
+import { COMMUNICATIONS_ENABLED, corsHeaders, getCorrelationId, getSupabaseClient, safeLog, verifyElevenLabsSignature } from "../shared-utils.ts";
 
 // CRM-001: Secret loaded ONLY from env var. No fallback. Fail fast.
 const ELEVENLABS_WEBHOOK_SECRET = Deno.env.get('ELEVENLABS_WEBHOOK_SECRET');
@@ -8,11 +8,20 @@ if (!ELEVENLABS_WEBHOOK_SECRET) {
 }
 
 serve(async (req) => {
+  const correlationId = getCorrelationId(req);
+
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
+    if (!COMMUNICATIONS_ENABLED) {
+      return new Response(
+        JSON.stringify({ success: true, skipped: 'communications_disabled', correlation_id: correlationId }),
+        { status: 202, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
     if (!ELEVENLABS_WEBHOOK_SECRET) {
       return new Response('Server misconfigured: missing webhook secret', { status: 500 });
     }
@@ -36,6 +45,7 @@ serve(async (req) => {
     // 2. Log the integration event
     await supabase.from('integration_logs').insert({
       provider: 'elevenlabs',
+      request_id: correlationId,
       external_id: callId,
       status: eventType,
       payload_ref: body,
@@ -184,7 +194,8 @@ serve(async (req) => {
                             event_type: 'orchestration.cancelled_by_appointment',
                             payload: { 
                                 reason: 'appointment_confirmed', 
-                                scheduled_at: resData.scheduled_datetime 
+                                scheduled_at: resData.scheduled_datetime,
+                                correlation_id: correlationId,
                             }
                         });
                     }
@@ -193,26 +204,32 @@ serve(async (req) => {
             await supabase.from('lead_events').insert({
                 lead_id: leadId,
                 event_type: 'conversation.completed',
-                payload: body
+                payload: {
+                    ...body,
+                    correlation_id: correlationId,
+                }
             });
 
         } else if (eventType === 'call_initiation_failed') {
             await supabase.from('lead_events').insert({
                 lead_id: leadId,
                 event_type: 'conversation.failed_initiation',
-                payload: body
+                payload: {
+                    ...body,
+                    correlation_id: correlationId,
+                }
             });
         }
     }
 
     return new Response(
-      JSON.stringify({ success: true }),
+      JSON.stringify({ success: true, correlation_id: correlationId }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
     console.error('Webhook Error:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error.message, correlation_id: correlationId }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

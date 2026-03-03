@@ -12,11 +12,11 @@ if (fs.existsSync(envPath)) {
     });
 }
 
-const SUPABASE_URL = env.VITE_SUPABASE_URL || 'https://cnkwnynujtyfslafsmug.supabase.co';
+const SUPABASE_URL = env.VITE_SUPABASE_URL || env.SUPABASE_URL;
 const SERVICE_KEY = env.SUPABASE_SERVICE_ROLE_KEY;
 
-if (!SERVICE_KEY) {
-    console.error("❌ Need SUPABASE_SERVICE_ROLE_KEY.");
+if (!SUPABASE_URL || !SERVICE_KEY) {
+    console.error("❌ Need SUPABASE_URL/VITE_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.");
     process.exit(1);
 }
 

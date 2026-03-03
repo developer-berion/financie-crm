@@ -16,11 +16,11 @@ if (fs.existsSync(envPath)) {
     });
 }
 
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://cnkwnynujtyfslafsmug.supabase.co';
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-if (!SERVICE_KEY) {
-    console.error('CRITICAL: SERVICE_KEY missing.');
+if (!SUPABASE_URL || !SERVICE_KEY) {
+    console.error('CRITICAL: SUPABASE_URL/VITE_SUPABASE_URL and SERVICE_KEY are required.');
     process.exit(1);
 }
 
