@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { Users, UserPlus, Calendar, ListTodo, Zap } from 'lucide-react';
 import { format, isToday } from 'date-fns';
@@ -78,10 +78,42 @@ export default function Dashboard() {
     const [agentsWithInterview, setAgentsWithInterview] = useState(0);
 
     const [loading, setLoading] = useState(true);
+    const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const scheduleDashboardRefresh = useCallback(() => {
+        if (refreshTimeoutRef.current) {
+            clearTimeout(refreshTimeoutRef.current);
+        }
+        // Debounce bursts of DB events to avoid noisy re-fetch loops.
+        refreshTimeoutRef.current = setTimeout(() => {
+            fetchDashboardData(dateRange);
+        }, 350);
+    }, [dateRange]);
 
     useEffect(() => {
         fetchDashboardData(dateRange);
     }, [dateRange]);
+
+    useEffect(() => {
+        const channel = supabase
+            .channel('dashboard_live_refresh')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, scheduleDashboardRefresh)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'lead_events' }, scheduleDashboardRefresh)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, scheduleDashboardRefresh)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, scheduleDashboardRefresh)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'jobs' }, scheduleDashboardRefresh)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'pipeline_stages' }, scheduleDashboardRefresh)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'agentes' }, scheduleDashboardRefresh)
+            .subscribe();
+
+        return () => {
+            if (refreshTimeoutRef.current) {
+                clearTimeout(refreshTimeoutRef.current);
+                refreshTimeoutRef.current = null;
+            }
+            supabase.removeChannel(channel);
+        };
+    }, [scheduleDashboardRefresh]);
 
     const fetchPipelineData = async () => {
         const { start, end } = getDashboardDateRange(dateRange);
