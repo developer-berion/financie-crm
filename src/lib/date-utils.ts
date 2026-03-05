@@ -19,11 +19,12 @@ export function getDashboardDateRange(range: DashboardDateRange) {
     case 'today':
       start = startOfDay(now);
       break;
-    case 'yesterday':
+    case 'yesterday': {
       const yesterday = subDays(now, 1);
       start = startOfDay(yesterday);
       end = endOfDay(yesterday);
       break;
+    }
     case 'this_week':
       // Monday to Sunday as per PM plan
       start = startOfWeek(now, { weekStartsOn: 1 });
@@ -31,11 +32,12 @@ export function getDashboardDateRange(range: DashboardDateRange) {
     case 'this_month':
       start = startOfMonth(now);
       break;
-    case 'last_month':
+    case 'last_month': {
       const lastMonth = subMonths(now, 1);
       start = startOfMonth(lastMonth);
       end = endOfMonth(lastMonth);
       break;
+    }
     default:
       start = startOfMonth(now);
   }

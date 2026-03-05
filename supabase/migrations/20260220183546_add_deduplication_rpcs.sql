@@ -16,6 +16,7 @@ RETURNS TABLE (
 ) 
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public, pg_catalog
 AS $$
 BEGIN
     RETURN QUERY
@@ -61,6 +62,7 @@ CREATE OR REPLACE FUNCTION merge_leads(
 RETURNS BOOLEAN
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public, pg_catalog
 AS $$
 DECLARE
     v_survivor_exists BOOLEAN;

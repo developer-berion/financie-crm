@@ -3,17 +3,20 @@ import { X, ArrowRight, ShieldAlert } from 'lucide-react';
 import type { DuplicateMatch } from '../../hooks/useDuplicateDetector';
 import { cn } from '../../lib/utils';
 
+type MergeFieldKey = 'full_name' | 'email' | 'phone' | 'source';
+type MergeLeadInput = Partial<Record<MergeFieldKey, string | null>>;
+
 interface MergeConflictModalProps {
     isOpen: boolean;
     onClose: () => void;
     onMerge: (survivorId: string, duplicateId: string, mergedFields: Record<string, string>) => void;
-    newLeadData: Partial<any>; // Current form data
+    newLeadData: MergeLeadInput; // Current form data
     existingLead: DuplicateMatch; // The matched lead from DB
 }
 
 export function MergeConflictModal({ isOpen, onClose, onMerge, newLeadData, existingLead }: MergeConflictModalProps) {
     // State to hold which side won for each field. 'new' or 'existing'
-    const [selections, setSelections] = useState<Record<string, 'new' | 'existing'>>({
+    const [selections, setSelections] = useState<Record<MergeFieldKey, 'new' | 'existing'>>({
         full_name: 'existing',
         email: 'existing',
         phone: 'existing',
@@ -22,14 +25,14 @@ export function MergeConflictModal({ isOpen, onClose, onMerge, newLeadData, exis
 
     if (!isOpen) return null;
 
-    const fieldsToCompare = [
+    const fieldsToCompare: Array<{ key: MergeFieldKey; label: string }> = [
         { key: 'full_name', label: 'Nombre Completo' },
         { key: 'email', label: 'Correo Electrónico' },
         { key: 'phone', label: 'Teléfono' },
         { key: 'source', label: 'Origen' }
     ];
 
-    const handleSelect = (field: string, source: 'new' | 'existing') => {
+    const handleSelect = (field: MergeFieldKey, source: 'new' | 'existing') => {
         setSelections(prev => ({ ...prev, [field]: source }));
     };
 
@@ -38,7 +41,8 @@ export function MergeConflictModal({ isOpen, onClose, onMerge, newLeadData, exis
         const merged: Record<string, string> = {};
         fieldsToCompare.forEach(({ key }) => {
             const winner = selections[key];
-            const val = winner === 'new' ? newLeadData[key] : (existingLead as any)[key];
+            const existingValue = (existingLead as Partial<Record<MergeFieldKey, string | null>>)[key];
+            const val = winner === 'new' ? newLeadData[key] : existingValue;
             if (val) {
                 merged[key] = val;
             }
@@ -128,8 +132,8 @@ export function MergeConflictModal({ isOpen, onClose, onMerge, newLeadData, exis
                                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">{label}</p>
                                     <p className={cn(
                                         "font-medium truncate",
-                                        !(existingLead as any)[key] && "italic text-gray-400"
-                                    )}>{(existingLead as any)[key] || 'Vacío'}</p>
+                                        !(existingLead as Partial<Record<MergeFieldKey, string | null>>)[key] && "italic text-gray-400"
+                                    )}>{(existingLead as Partial<Record<MergeFieldKey, string | null>>)[key] || 'Vacío'}</p>
                                 </div>
                             ))}
                         </div>

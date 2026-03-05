@@ -29,6 +29,48 @@ interface RevenueForecastProps {
     onRetry?: () => void;
 }
 
+interface CustomTooltipProps {
+    active?: boolean;
+    payload?: Array<{
+        payload: {
+            fullValue: number;
+            weightedValue: number;
+            probability: number;
+        };
+    }>;
+    label?: string;
+}
+
+function formatCurrency(amount: number): string {
+    return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        maximumFractionDigits: 0
+    }).format(amount);
+}
+
+function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
+    if (active && payload && payload.length) {
+        return (
+            <div className="bg-white p-3 border border-gray-100 shadow-xl rounded-lg z-[100]">
+                <p className="font-semibold text-brand-primary mb-2">{label}</p>
+                <div className="space-y-1">
+                    <p className="text-sm text-gray-600">
+                        Valor Total: <span className="font-medium text-gray-900">{formatCurrency(payload[0].payload.fullValue)}</span>
+                    </p>
+                    <p className="text-sm text-brand-secondary">
+                        Forecast (Ponderado): <span className="font-bold">{formatCurrency(payload[0].payload.weightedValue)}</span>
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1 pt-1 border-t border-gray-50">
+                        Probabilidad aplicada: {payload[0].payload.probability}%
+                    </p>
+                </div>
+            </div>
+        );
+    }
+    return null;
+}
+
 export default function RevenueForecast({ stages, isLoading, isError, onRetry }: RevenueForecastProps) {
     const [simulatorMode, setSimulatorMode] = useState(false);
 
@@ -45,24 +87,6 @@ export default function RevenueForecast({ stages, isLoading, isError, onRetry }:
 
     // In simulator mode, users can tweak the probability to see impact
     const [simulatedProbs, setSimulatedProbs] = useState<Record<string, number>>({});
-
-    // Inline format currency function
-    const formatCurrency = (amount: number) => {
-        return new Intl.NumberFormat('en-US', {
-            style: 'currency',
-            currency: 'USD',
-            maximumFractionDigits: 0
-        }).format(amount);
-    };
-
-    // Initialize simulated probs when stages change
-    useMemo(() => {
-        const initialProbs: Record<string, number> = {};
-        stages.forEach(s => {
-            initialProbs[s.stage_id] = s.probability_pct;
-        });
-        setSimulatedProbs(initialProbs);
-    }, [stages]);
 
     const handleProbChange = (stageId: string, value: number) => {
         setSimulatedProbs(prev => ({
@@ -109,28 +133,6 @@ export default function RevenueForecast({ stages, isLoading, isError, onRetry }:
         progressBgClass = "bg-amber-500";
     }
 
-    const CustomTooltip = ({ active, payload, label }: any) => {
-        if (active && payload && payload.length) {
-            return (
-                <div className="bg-white p-3 border border-gray-100 shadow-xl rounded-lg z-[100]">
-                    <p className="font-semibold text-brand-primary mb-2">{label}</p>
-                    <div className="space-y-1">
-                        <p className="text-sm text-gray-600">
-                            Valor Total: <span className="font-medium text-gray-900">{formatCurrency(payload[0].payload.fullValue)}</span>
-                        </p>
-                        <p className="text-sm text-brand-secondary">
-                            Forecast (Ponderado): <span className="font-bold">{formatCurrency(payload[0].payload.weightedValue)}</span>
-                        </p>
-                        <p className="text-xs text-gray-400 mt-1 pt-1 border-t border-gray-50">
-                            Probabilidad aplicada: {payload[0].payload.probability}%
-                        </p>
-                    </div>
-                </div>
-            );
-        }
-        return null;
-    };
-
     if (isLoading) {
         return (
             <div className="bg-white rounded-2xl shadow-sm border border-brand-border p-6 flex flex-col h-full animate-pulse min-h-[380px]">
@@ -144,7 +146,7 @@ export default function RevenueForecast({ stages, isLoading, isError, onRetry }:
                 </div>
                 <div className="flex-1 mt-6 w-full flex items-end gap-2 px-2">
                     {[1, 2, 3, 4, 5].map((i) => (
-                        <div key={i} className="flex-1 bg-gray-100 rounded-t-sm" style={{ height: `${Math.max(20, Math.random() * 80)}%` }}></div>
+                        <div key={i} className="flex-1 bg-gray-100 rounded-t-sm" style={{ height: `${20 + i * 12}%` }}></div>
                     ))}
                 </div>
             </div>

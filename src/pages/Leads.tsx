@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import type { Lead } from '../types';
@@ -10,6 +10,14 @@ import Breadcrumbs from '../components/Breadcrumbs';
 import LeadQuickFilters, { type QuickFilterType } from '../components/LeadQuickFilters';
 import { getDashboardDateRange, type DashboardDateRange } from '../lib/date-utils';
 
+function getLeadStageName(lead: Lead): string {
+    const stage = lead.pipeline_stages;
+    if (Array.isArray(stage)) {
+        return (stage[0]?.name || '').toLowerCase();
+    }
+    return (stage?.name || '').toLowerCase();
+}
+
 export default function Leads() {
     const [leads, setLeads] = useState<Lead[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
@@ -17,20 +25,10 @@ export default function Leads() {
     const [filters, setFilters] = useState({ stages: [] as string[] });
     const [quickFilter, setQuickFilter] = useState<QuickFilterType>('all');
     const [searchParams] = useSearchParams();
+    const quickFilterFromQuery = searchParams.get('status') === 'new' ? 'new' : null;
+    const effectiveQuickFilter: QuickFilterType = quickFilterFromQuery ?? quickFilter;
 
-    useEffect(() => {
-        // Handle drill-down filters from dashboard
-        const status = searchParams.get('status');
-        const createdAt = searchParams.get('created_at');
-
-        if (status === 'new') {
-            setQuickFilter('new');
-        }
-
-        fetchLeads(createdAt);
-    }, [searchParams]);
-
-    async function fetchLeads(dateRange?: string | null) {
+    const fetchLeads = useCallback(async (dateRange?: string | null) => {
         let query = supabase
             .from('leads')
             .select(`
@@ -46,7 +44,7 @@ export default function Leads() {
                 query = query
                     .gte('created_at', start)
                     .lte('created_at', end);
-            } catch (e) {
+            } catch {
                 console.error('Invalid date range:', dateRange);
             }
         }
@@ -56,10 +54,19 @@ export default function Leads() {
         if (error) {
             console.error('Error fetching leads:', error);
         } else {
-            // @ts-ignore
-            setLeads(data || []);
+            setLeads((data || []) as Lead[]);
         }
-    }
+    }, []);
+
+    useEffect(() => {
+        // Handle drill-down filters from dashboard
+        const createdAt = searchParams.get('created_at');
+
+        const initialFetchTimer = window.setTimeout(() => {
+            void fetchLeads(createdAt);
+        }, 0);
+        return () => window.clearTimeout(initialFetchTimer);
+    }, [searchParams, fetchLeads]);
 
     const filteredLeads = leads.filter(lead => {
         // 1. Search Filter
@@ -68,27 +75,24 @@ export default function Leads() {
 
         // 2. Modal Filter (Stages)
         const matchesStage = filters.stages.length === 0 ||
-            // @ts-ignore
-            (lead.pipeline_stages && filters.stages.includes(lead.pipeline_stages.name));
+            filters.stages.some((stage) => stage.toLowerCase() === getLeadStageName(lead));
 
         // 3. Quick Filters Logic
         let matchesQuickFilter = true;
 
         // Helper to get stage name safely
-        const stageName = (Array.isArray(lead.pipeline_stages)
-            ? lead.pipeline_stages[0]?.name
-            : (lead.pipeline_stages as any)?.name)?.toLowerCase() || '';
+        const stageName = getLeadStageName(lead);
 
-        if (quickFilter === 'new') {
+        if (effectiveQuickFilter === 'new') {
             matchesQuickFilter = stageName.includes('nuevo') ||
                 stageName.includes('new') ||
                 lead.status === 'new';
-        } else if (quickFilter === 'unread') {
+        } else if (effectiveQuickFilter === 'unread') {
             // Proxy logic: New OR (Contact Attempts = 0 or undefined)
             const isNew = stageName.includes('nuevo') || lead.status === 'new';
             const hasNoContact = lead.contact_attempts === 0 || lead.contact_attempts === undefined;
             matchesQuickFilter = isNew || hasNoContact;
-        } else if (quickFilter === 'high_value') {
+        } else if (effectiveQuickFilter === 'high_value') {
             matchesQuickFilter = (lead.estimated_value || 0) > 5000;
         }
 
@@ -99,9 +103,7 @@ export default function Leads() {
     const getCount = (type: QuickFilterType) => {
         if (type === 'all') return leads.length;
         return leads.filter(lead => {
-            const stageName = (Array.isArray(lead.pipeline_stages)
-                ? lead.pipeline_stages[0]?.name
-                : (lead.pipeline_stages as any)?.name)?.toLowerCase() || '';
+            const stageName = getLeadStageName(lead);
 
             if (type === 'new') {
                 return stageName.includes('nuevo') || stageName.includes('new') || lead.status === 'new';
@@ -154,7 +156,7 @@ export default function Leads() {
                 {/* Quick Filters Bar */}
                 <div className="px-6 py-4 border-b border-gray-50 bg-gray-50/30">
                     <LeadQuickFilters
-                        activeFilter={quickFilter}
+                        activeFilter={effectiveQuickFilter}
                         onFilterChange={setQuickFilter}
                         counts={counts}
                     />

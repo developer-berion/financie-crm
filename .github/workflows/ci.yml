@@ -4,13 +4,14 @@ on:
   push:
     branches:
       - staging
+      - codex-version
   pull_request:
     branches:
       - master
 
 jobs:
   quality-check:
-    name: Type Check & Smoke Test
+    name: Secrets, Smoke, Unit
     runs-on: ubuntu-latest
 
     steps:
@@ -26,5 +27,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Secret & Governance Scan
+        run: npm run scan:secrets
+
+      - name: Lint (informational)
+        continue-on-error: true
+        run: npm run lint
+
       - name: Run Smoke Test (Type Check)
         run: npm run test:smoke
+
+      - name: Run Unit Tests
+        run: npm run test -- --run

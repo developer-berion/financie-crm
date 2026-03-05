@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { Users, UserPlus, Calendar, ListTodo, Zap } from 'lucide-react';
 import { format, isToday } from 'date-fns';
@@ -16,6 +16,7 @@ import type { ForecastStage } from '../components/dashboard/RevenueForecast';
 import AgentLeaderboard from '../components/dashboard/AgentLeaderboard';
 import type { AgentPerformance } from '../components/dashboard/AgentLeaderboard';
 import { getDashboardDateRange, type DashboardDateRange } from '../lib/date-utils';
+import type { LeadEvent } from '../types';
 
 interface StageCount {
     id: string;
@@ -26,6 +27,32 @@ interface StageCount {
     conversion_rate: number;
     dropoff_rate: number;
     is_red_flag?: boolean;
+}
+
+interface PipelineLeakageRow {
+    stage_id: string;
+    stage_name: string;
+    sort_order: number;
+    current_leads: number;
+    entered_leads: number | null;
+}
+
+interface MyDayTaskItem {
+    id: string;
+    lead_id: string | null;
+    title: string;
+    due_at: string;
+    status: string;
+    lead_name?: string;
+}
+
+interface UpcomingAppointmentItem {
+    id: string;
+    lead_id: string | null;
+    start_time: string;
+    status: string;
+    meeting_url: string | null;
+    lead_name?: string;
 }
 
 /**
@@ -43,8 +70,7 @@ export default function Dashboard() {
     const [pendingJobs, setPendingJobs] = useState(0); // Tareas automáticas (llamadas AI) procesándose
 
     // State for MyDayWidget
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const [myDayTasks, setMyDayTasks] = useState<any[]>([]);
+    const [myDayTasks, setMyDayTasks] = useState<MyDayTaskItem[]>([]);
 
     // Global Date Filter
     const [dateRange, setDateRange] = useState<DashboardDateRange>('this_month');
@@ -66,57 +92,19 @@ export default function Dashboard() {
     const [leaderboardError, setLeaderboardError] = useState(false);
 
     // Activity Feed
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const [activityEvents, setActivityEvents] = useState<any[]>([]);
+    const [activityEvents, setActivityEvents] = useState<LeadEvent[]>([]);
 
     // Upcoming Appointments
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const [upcomingAppointments, setUpcomingAppointments] = useState<any[]>([]);
+    const [upcomingAppointments, setUpcomingAppointments] = useState<UpcomingAppointmentItem[]>([]);
 
     // Agents Summary
     const [totalAgents, setTotalAgents] = useState(0);
     const [agentsWithInterview, setAgentsWithInterview] = useState(0);
 
     const [loading, setLoading] = useState(true);
-    const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    const scheduleDashboardRefresh = useCallback(() => {
-        if (refreshTimeoutRef.current) {
-            clearTimeout(refreshTimeoutRef.current);
-        }
-        // Debounce bursts of DB events to avoid noisy re-fetch loops.
-        refreshTimeoutRef.current = setTimeout(() => {
-            fetchDashboardData(dateRange);
-        }, 350);
-    }, [dateRange]);
-
-    useEffect(() => {
-        fetchDashboardData(dateRange);
-    }, [dateRange]);
-
-    useEffect(() => {
-        const channel = supabase
-            .channel('dashboard_live_refresh')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, scheduleDashboardRefresh)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'lead_events' }, scheduleDashboardRefresh)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, scheduleDashboardRefresh)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, scheduleDashboardRefresh)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'jobs' }, scheduleDashboardRefresh)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'pipeline_stages' }, scheduleDashboardRefresh)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'agentes' }, scheduleDashboardRefresh)
-            .subscribe();
-
-        return () => {
-            if (refreshTimeoutRef.current) {
-                clearTimeout(refreshTimeoutRef.current);
-                refreshTimeoutRef.current = null;
-            }
-            supabase.removeChannel(channel);
-        };
-    }, [scheduleDashboardRefresh]);
-
-    const fetchPipelineData = async () => {
-        const { start, end } = getDashboardDateRange(dateRange);
+    const fetchPipelineData = useCallback(async (range: DashboardDateRange) => {
+        const { start, end } = getDashboardDateRange(range);
         setPipelineLoading(true);
         setPipelineError(false);
         try {
@@ -127,15 +115,17 @@ export default function Dashboard() {
                     p_source: null
                 });
 
-            let processedStages: any[] = [];
+            let processedStages: StageCount[] = [];
 
             if (!leakageError && leakageData && leakageData.length > 0) {
-                processedStages = leakageData.map((s: any) => ({
+                processedStages = (leakageData as PipelineLeakageRow[]).map((s) => ({
                     id: s.stage_id,
                     name: s.stage_name,
                     sort_order: s.sort_order,
                     current_leads: s.current_leads,
-                    entered_leads: s.entered_leads || s.current_leads,
+                    entered_leads: s.entered_leads ?? s.current_leads,
+                    conversion_rate: 0,
+                    dropoff_rate: 0,
                 }));
             } else {
                 const { data: stagesData } = await supabase.from('pipeline_stages').select('*').order('sort_order');
@@ -151,6 +141,8 @@ export default function Dashboard() {
                         sort_order: s.sort_order,
                         current_leads: countMap[s.id] || 0,
                         entered_leads: countMap[s.id] || 0,
+                        conversion_rate: 0,
+                        dropoff_rate: 0,
                     }));
                 }
             }
@@ -194,10 +186,10 @@ export default function Dashboard() {
         } finally {
             setPipelineLoading(false);
         }
-    };
+    }, []);
 
-    const fetchForecastData = async () => {
-        const { start, end } = getDashboardDateRange(dateRange);
+    const fetchForecastData = useCallback(async (range: DashboardDateRange) => {
+        const { start, end } = getDashboardDateRange(range);
         setForecastLoading(true);
         setForecastError(false);
         try {
@@ -214,10 +206,10 @@ export default function Dashboard() {
         } finally {
             setForecastLoading(false);
         }
-    };
+    }, []);
 
-    const fetchLeaderboardData = async () => {
-        const { start, end } = getDashboardDateRange(dateRange);
+    const fetchLeaderboardData = useCallback(async (range: DashboardDateRange) => {
+        const { start, end } = getDashboardDateRange(range);
         setLeaderboardLoading(true);
         setLeaderboardError(false);
         try {
@@ -234,9 +226,9 @@ export default function Dashboard() {
         } finally {
             setLeaderboardLoading(false);
         }
-    };
+    }, []);
 
-    async function fetchDashboardData(range: DashboardDateRange) {
+    const fetchDashboardData = useCallback(async (range: DashboardDateRange) => {
         const { start, end } = getDashboardDateRange(range);
 
         // Specific dates for "My Day" (strictly today)
@@ -249,9 +241,9 @@ export default function Dashboard() {
 
         try {
             // ─── Trigger Independent Intelligence Fetches ──────────
-            fetchPipelineData();
-            fetchForecastData();
-            fetchLeaderboardData();
+            void fetchPipelineData(range);
+            void fetchForecastData(range);
+            void fetchLeaderboardData(range);
 
             // ─── KPI Queries (parallel) ────────────────────────
             const [
@@ -377,6 +369,7 @@ export default function Dashboard() {
 
                 const enrichedAppts = upcomingData.map((a) => ({
                     ...a,
+                    meeting_url: a.meeting_url ?? null,
                     lead_name: a.lead_id ? apptNameMap[a.lead_id] || 'Lead' : undefined,
                 }));
                 setUpcomingAppointments(enrichedAppts);
@@ -405,7 +398,11 @@ export default function Dashboard() {
         } finally {
             setLoading(false);
         }
-    }
+    }, [fetchPipelineData, fetchForecastData, fetchLeaderboardData]);
+
+    useEffect(() => {
+        void fetchDashboardData(dateRange);
+    }, [dateRange, fetchDashboardData]);
 
     // ─── Loading State (Skeletons) ─────────────────────────
     if (loading) {
@@ -493,13 +490,17 @@ export default function Dashboard() {
                     stages={pipelineStages}
                     isLoading={pipelineLoading}
                     isError={pipelineError}
-                    onRetry={fetchPipelineData}
+                    onRetry={() => {
+                        void fetchPipelineData(dateRange);
+                    }}
                 />
                 <RevenueForecast
                     stages={forecastStages}
                     isLoading={forecastLoading}
                     isError={forecastError}
-                    onRetry={fetchForecastData}
+                    onRetry={() => {
+                        void fetchForecastData(dateRange);
+                    }}
                 />
             </div>
 
@@ -509,7 +510,9 @@ export default function Dashboard() {
                     <MyDayWidget
                         tasks={myDayTasks}
                         appointments={upcomingAppointments.filter(a => isToday(new Date(a.start_time)))}
-                        onTaskUpdate={() => fetchDashboardData(dateRange)}
+                        onTaskUpdate={() => {
+                            void fetchDashboardData(dateRange);
+                        }}
                     />
                 </div>
                 <div className="lg:col-span-1">
@@ -524,7 +527,9 @@ export default function Dashboard() {
                     agents={agentPerformance}
                     isLoading={leaderboardLoading}
                     isError={leaderboardError}
-                    onRetry={fetchLeaderboardData}
+                    onRetry={() => {
+                        void fetchLeaderboardData(dateRange);
+                    }}
                 />
             </div>
 

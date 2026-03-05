@@ -1,12 +1,36 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { corsHeaders, getSupabaseClient, verifyTwilioSignature, safeLog } from "../shared-utils.ts";
+import { corsHeaders, getCorrelationId, getSupabaseClient, logStructured, safeLog, verifyTwilioSignature } from "../shared-utils.ts";
+
+interface SmsEventUpdate {
+  lead_id: string;
+  message_sid: string;
+  status_raw: string;
+  last_callback_payload: Record<string, string>;
+  status_crm?: string;
+  delivered_at?: string;
+  failed_at?: string;
+}
 
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   return String(error);
 }
 
+function normalizePayload(payload: unknown): Record<string, string> {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    return {};
+  }
+
+  const normalized: Record<string, string> = {};
+  Object.entries(payload as Record<string, unknown>).forEach(([key, value]) => {
+    normalized[key] = value === null || value === undefined ? '' : String(value);
+  });
+  return normalized;
+}
+
 serve(async (req) => {
+  const correlationId = getCorrelationId(req);
+
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
@@ -15,16 +39,13 @@ serve(async (req) => {
     const supabase = getSupabaseClient();
     
     // 0. Parse body first (needed for signature verification)
-    let body: Record<string, any>;
+    let body: Record<string, string>;
     const contentType = req.headers.get('content-type') || '';
     if (contentType.includes('application/json')) {
-        body = await req.json();
+        body = normalizePayload(await req.json());
     } else {
         const formData = await req.formData();
-        body = {} as Record<string, any>;
-        formData.forEach((value, key) => {
-            body[key] = value;
-        });
+        body = normalizePayload(Object.fromEntries(formData.entries()));
     }
 
     // CRM-002: Validate Twilio Signature (ENABLED)
@@ -34,11 +55,11 @@ serve(async (req) => {
     
     if (authToken) {
         if (!signature || !(await verifyTwilioSignature(requestUrl, body, signature, authToken))) {
-            console.warn('[SMS Webhook] Missing or Invalid Twilio Signature. Rejecting request.');
+            logStructured('warn', 'sms_webhook', 'invalid_twilio_signature', { correlation_id: correlationId });
             return new Response('Forbidden', { status: 403, headers: corsHeaders });
         }
     } else {
-        console.warn('[SMS Webhook] Twilio auth token not configured. Signature verification skipped.');
+        logStructured('warn', 'sms_webhook', 'signature_verification_skipped', { correlation_id: correlationId });
     }
 
     safeLog('[SMS Webhook] Received', { MessageSid: body.MessageSid, SmsStatus: body.SmsStatus || body.MessageStatus });
@@ -71,7 +92,10 @@ serve(async (req) => {
             });
 
             if (isBlacklisted) {
-                console.log(`[Blacklist] Blocking SMS from ${From}`);
+                logStructured('info', 'sms_webhook', 'blacklist_blocked', {
+                    correlation_id: correlationId,
+                    from: From,
+                });
                 // Return valid empty TwiML to Twilio so it doesn't retry
                 return new Response(
                     '<?xml version="1.0" encoding="UTF-8"?><Response></Response>',
@@ -92,6 +116,7 @@ serve(async (req) => {
     // 1. Log the integration event
     await supabase.from('integration_logs').insert({
       provider: 'twilio',
+      request_id: correlationId,
       status: status,
       payload_ref: body,
       message_safe: MessageBody ? `SMS from ${From}: ${MessageBody.substring(0, 50)}...` : `Status update: ${status}`
@@ -133,16 +158,6 @@ serve(async (req) => {
     }
 
     if (leadId) {
-interface SmsEventUpdate {
-    lead_id: string;
-    message_sid: string;
-    status_raw: string;
-    last_callback_payload: Record<string, unknown>;
-    status_crm?: string;
-    delivered_at?: string;
-    failed_at?: string;
-}
-
         // Upsert into sms_events
         const eventData: SmsEventUpdate = {
             lead_id: leadId,
@@ -184,19 +199,26 @@ interface SmsEventUpdate {
                     scheduled_at: scheduledAt,
                     status: 'PENDING'
                 });
-                console.log(`Scheduled follow-up call for lead ${leadId} at ${scheduledAt}`);
+                logStructured('info', 'sms_webhook', 'followup_call_scheduled', {
+                    correlation_id: correlationId,
+                    lead_id: leadId,
+                    scheduled_at: scheduledAt,
+                });
             }
         }
     }
 
     return new Response(
-      JSON.stringify({ success: true }),
+      JSON.stringify({ success: true, correlation_id: correlationId }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error('Webhook Error:', error);
+    logStructured('error', 'sms_webhook', 'fatal_error', {
+      correlation_id: correlationId,
+      error: getErrorMessage(error),
+    });
     return new Response(
-      JSON.stringify({ error: getErrorMessage(error) }),
+      JSON.stringify({ error: getErrorMessage(error), correlation_id: correlationId }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

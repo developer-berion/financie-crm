@@ -1,7 +1,25 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { corsHeaders, getSupabaseClient, US_STATE_TIMEZONES, FULL_STATE_TO_ABBR } from "../shared-utils.ts";
+import { corsHeaders, FULL_STATE_TO_ABBR, getCorrelationId, getSupabaseClient, logStructured, triggerCall, US_STATE_TIMEZONES } from "../shared-utils.ts";
+
+interface DispatcherLead {
+    id: string;
+    phone: string | null;
+    full_name: string | null;
+    do_not_call: boolean | null;
+    state: string | null;
+}
+
+interface DispatcherSchedule {
+    id: string;
+    lead_id: DispatcherLead | null;
+    attempts_today: number | null;
+    retry_count_block: number | null;
+    active: boolean;
+}
 
 serve(async (req) => {
+    const correlationId = getCorrelationId(req);
+
     // Defines standard retry windows (Lead Local Time)
     const validHours = [9, 12, 19]; 
     const now = new Date();
@@ -26,7 +44,10 @@ serve(async (req) => {
         return parseInt(hourStr, 10) % 24;
     }
 
-    console.log(`Dispatcher Run. UTC: ${now.toISOString()}`);
+    logStructured('info', 'call_dispatcher', 'run_start', {
+        correlation_id: correlationId,
+        now_utc: now.toISOString(),
+    });
 
     const supabase = getSupabaseClient();
     
@@ -38,22 +59,32 @@ serve(async (req) => {
         .lte('next_attempt_at', now.toISOString())
         .limit(20); // Process in batches
 
-    console.log(`Querying schedules <= ${now.toISOString()}`);
-    console.log(`Schedules found: ${schedules?.length || 0}`);
+    const typedSchedules = (schedules ?? []) as unknown as DispatcherSchedule[];
+    logStructured('info', 'call_dispatcher', 'schedules_loaded', {
+        correlation_id: correlationId,
+        schedules_found: typedSchedules.length,
+        next_attempt_lte: now.toISOString(),
+    });
 
     if (error) {
         return new Response(JSON.stringify(error), { status: 500 });
     }
 
-    if (!schedules || schedules.length === 0) {
+    if (typedSchedules.length === 0) {
         return new Response(JSON.stringify({ message: 'No actions due' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     const results = [];
 
-    for (const item of schedules) {
-        //@ts-ignore join
+    for (const item of typedSchedules) {
         const lead = item.lead_id;
+        if (!lead?.id) {
+            logStructured('warn', 'call_dispatcher', 'missing_joined_lead', {
+                correlation_id: correlationId,
+                schedule_id: item.id,
+            });
+            continue;
+        }
         
         // 1. DNC Check
         if (lead.do_not_call) {
@@ -84,11 +115,18 @@ serve(async (req) => {
         const currentLocalHour = getLeadHour(now, tz);
         const isInWindow = validHours.includes(currentLocalHour);
         
-        console.log(`Lead ${lead.full_name} (${tz}): Local Hour ${currentLocalHour}. In Window? ${isInWindow}`);
+        logStructured('info', 'call_dispatcher', 'window_evaluation', {
+            correlation_id: correlationId,
+            lead_id: lead.id,
+            lead_name: lead.full_name,
+            timezone: tz,
+            local_hour: currentLocalHour,
+            is_in_window: isInWindow,
+        });
 
         if (!isInWindow) {
             // Find next block hour TODAY
-            let nextBlockHour = validHours.find(h => h > currentLocalHour);
+            const nextBlockHour = validHours.find(h => h > currentLocalHour);
             let nextAttemptDate: Date;
 
             if (nextBlockHour) {
@@ -96,16 +134,6 @@ serve(async (req) => {
                 // Construct date in target timezone
                 // We need to find the UTC time that corresponds to "Today, nextBlockHour:00" in Lead's TZ.
                 // Approach: Take 'now', format parts in TZ, reconstruct target, get ISO.
-                
-                // Native JS doesn't support "set timezone", so we use formatting to get "Today's Date in Lead TZ"
-                const parts = new Intl.DateTimeFormat('en-US', {
-                    year: 'numeric', month: 'numeric', day: 'numeric',
-                    timeZone: tz
-                }).formatToParts(now);
-                
-                const y = parts.find(p => p.type === 'year')?.value;
-                const m = parts.find(p => p.type === 'month')?.value;
-                const d = parts.find(p => p.type === 'day')?.value;
                 
                 // Create a string "YYYY-MM-DD HH:00:00" and parse it as if it were in that timezone?
                 // Hard to do without external libs. 
@@ -184,8 +212,7 @@ serve(async (req) => {
         }
 
         // 4. Execute Call (In Window)
-        const { triggerCall } = await import("../shared-utils.ts");
-        const callResult = await triggerCall(lead.id);
+        const callResult = await triggerCall(lead.id, correlationId);
 
         results.push({ id: item.id, status: 'triggered', result: callResult });
 
@@ -195,7 +222,7 @@ serve(async (req) => {
         // No, dispatch needs to move `next_attempt` forward so it doesn't loop instantly.
         
         let nextAttempt = new Date(now.getTime() + (5 * 60 * 1000)); // +5 mins
-        let nextBlockRetry = item.retry_count_block + 1;
+        let nextBlockRetry = (item.retry_count_block ?? 0) + 1;
 
         if (nextBlockRetry >= 3) {
             // Move to next block if retries exhausted
@@ -214,6 +241,6 @@ serve(async (req) => {
         }).eq('id', item.id);
     }
 
-    return new Response(JSON.stringify(results), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ correlation_id: correlationId, results }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 })
 ;

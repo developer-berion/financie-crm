@@ -3,12 +3,12 @@ import { RefreshCw, CheckCircle, AlertCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { cn } from '../lib/utils';
 
+const COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
+
 export default function SyncCalendlyButton({ className }: { className?: string }) {
     const [loading, setLoading] = useState(false);
     const [timeLeft, setTimeLeft] = useState(0);
     const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
-
-    const COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
 
     useEffect(() => {
         // Check cooldown on mount

@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
@@ -22,30 +22,32 @@ export default function Agentes() {
     const [sortColumn, setSortColumn] = useState<'name' | 'events' | 'created_at' | null>('created_at');
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
-    const fetchAgentes = async () => {
-        setLoading(true);
+    const fetchAgentes = useCallback(async () => {
         const { data } = await supabase
             .from('agentes')
             .select('*')
             .order('created_at', { ascending: false });
         if (data) setAgentes(data);
         setLoading(false);
-    };
+    }, []);
 
     useEffect(() => {
-        fetchAgentes();
+        const initialFetchTimer = window.setTimeout(() => {
+            void fetchAgentes();
+        }, 0);
 
         const subscription = supabase
             .channel('agentes_changes')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'agentes' }, () => {
-                fetchAgentes();
+                void fetchAgentes();
             })
             .subscribe();
 
         return () => {
+            window.clearTimeout(initialFetchTimer);
             subscription.unsubscribe();
         };
-    }, []);
+    }, [fetchAgentes]);
 
     const filteredAgentes = agentes.filter(agent =>
         agent.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||

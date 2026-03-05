@@ -1,4 +1,15 @@
 # PROGRESS_LOG
+## 2026-03-05
+- **Hecho:**
+  - Analisis de divergencia entre staging y codex-version (remoto y local).
+  - Definicion de runbook exacto de alineacion segura sin romper hotfix de staging.
+  - Documentacion del plan operativo en docs/reports/STAGING_CODEX_ALIGNMENT_PLAN_2026-03-05.md.
+- **Decisiones tomadas:** [Estrategia de alineacion bidireccional staging <-> codex-version](./DECISIONS.md)
+- **Bloqueos:**
+  - `test:smoke` en estado rojo local por imports faltantes (`useAuth`, `authContextCore`), debe resolverse antes de promocion.
+- **Proximo:**
+  - Ejecutar rama de integracion codex/staging-align-20260305 y gates completos.
+  - Merge a staging y fast-forward de codex-version para convergencia 100%.
 
 ## 2026-02-27
 - **Hecho:**
@@ -149,3 +160,4 @@
 - **Hecho:** Ejecución de `scan_profundo`. Mapeo de inventario y flujos críticos. Generación de reporte de riesgos.
 - **Hallazgos:** Riesgos medios-altos en RLS de notas y autenticación de webhooks Meta.
 - **Próximo:** Aplicar parches de seguridad y documentación de remediación.
+

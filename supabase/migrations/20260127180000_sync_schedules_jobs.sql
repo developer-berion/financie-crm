@@ -48,7 +48,7 @@ BEGIN
 
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_catalog;
 
 -- Trigger definition
 DROP TRIGGER IF EXISTS on_schedule_change ON public.call_schedules;

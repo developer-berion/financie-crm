@@ -1,3 +1,5 @@
+import type { Lead } from '../types';
+
 export interface StageGateRule {
   stageName: string;
   requiredFields: string[];
@@ -22,7 +24,7 @@ export const STAGE_GATES: Record<string, StageGateRule> = {
  * Checks a lead object against the frontend stage gates.
  * Returns an array of missing string field keys, or an empty array if valid.
  */
-export function validateLeadStageGate(lead: any, targetStageName: string): string[] {
+export function validateLeadStageGate(lead: Lead, targetStageName: string): string[] {
   const rule = STAGE_GATES[targetStageName];
   if (!rule) return []; // No rules for this stage
 

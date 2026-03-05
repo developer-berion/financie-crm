@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import Timeline from '../components/Timeline';
@@ -14,7 +14,7 @@ import { validateLeadStageGate } from '../lib/stage-gates';
 import { StageGateModal } from '../components/pipeline/StageGateModal';
 import TaskList from '../components/leads/TaskList';
 import TaskModal from '../components/tasks/TaskModal';
-import type { Task } from '../types';
+import type { Lead, LeadEvent, Note, Task } from '../types';
 
 import { Phone, Clock, MessageCircle, Layout, Info, Calendar } from 'lucide-react';
 import { cn, ENABLE_AI_FEATURES } from '../lib/utils';
@@ -36,18 +36,16 @@ interface PipelineStage {
 export default function LeadDetail() {
     const { id } = useParams<{ id: string }>();
     const [isCalendlyOpen, setIsCalendlyOpen] = useState(false);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const [lead, setLead] = useState<any>(null);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const [events, setEvents] = useState<any[]>([]);
+    const [lead, setLead] = useState<Lead | null>(null);
+    const [events, setEvents] = useState<LeadEvent[]>([]);
     // const [callEvents, setCallEvents] = useState<any[]>([]);
-    const [notes, setNotes] = useState<any[]>([]);
-    const [conversation, setConversation] = useState<any>(null);
+    const [notes, setNotes] = useState<Note[]>([]);
+    const [conversation, setConversation] = useState<{ summary?: string | null; transcript?: string | null } | null>(null);
     const [loading, setLoading] = useState(true);
     const [tasks, setTasks] = useState<Task[]>([]);
     const [isTranscriptModalOpen, setIsTranscriptModalOpen] = useState(false);
     const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
-    const [selectedNote, setSelectedNote] = useState<any>(null);
+    const [selectedNote, setSelectedNote] = useState<Note | null>(null);
     const [stages, setStages] = useState<PipelineStage[]>([]);
     const [gateModalState, setGateModalState] = useState<{
         isOpen: boolean;
@@ -62,28 +60,21 @@ export default function LeadDetail() {
     });
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
 
-    useEffect(() => {
-        if (id) {
-            fetchLeadData();
-            fetchStages();
-        }
-    }, [id]);
-
-    async function fetchStages() {
+    const fetchStages = useCallback(async () => {
         const { data } = await supabase
             .from('pipeline_stages')
             .select('*')
             .order('sort_order'); // Changed from 'position' to 'sort_order' to match schema
-        if (data) setStages(data);
-    }
+        if (data) setStages(data as PipelineStage[]);
+    }, []);
 
-    async function fetchLeadData() {
+    const fetchLeadData = useCallback(async () => {
         setLoading(true);
         if (!id) return;
 
         // Fetch Lead
         const { data: leadData } = await supabase.from('leads').select('*, bot_verification, pipeline_stages(id, name)').eq('id', id).single();
-        if (leadData) setLead(leadData);
+        if (leadData) setLead(leadData as Lead);
 
         // Fetch Lead Events (Timeline)
         const { data: eventData } = await supabase
@@ -123,7 +114,12 @@ export default function LeadDetail() {
             .limit(1)
             .maybeSingle();
 
-        if (convData) setConversation(convData);
+        if (convData) {
+            setConversation({
+                summary: convData.summary as string | null,
+                transcript: convData.transcript as string | null,
+            });
+        }
 
         // Fetch Pending Tasks
         const { data: taskData } = await supabase
@@ -133,10 +129,16 @@ export default function LeadDetail() {
             .eq('status', 'pending')
             .order('due_at', { ascending: true });
 
-        if (taskData) setTasks(taskData);
+        if (taskData) setTasks(taskData as Task[]);
 
         setLoading(false);
-    }
+    }, [id]);
+
+    useEffect(() => {
+        if (!id) return;
+        void fetchLeadData();
+        void fetchStages();
+    }, [id, fetchLeadData, fetchStages]);
 
     const rootElement = document.getElementById("root");
 
@@ -173,16 +175,16 @@ export default function LeadDetail() {
             if (error) throw error;
 
             // Optimistic update
-            setLead((prev: any) => ({ ...prev, [field]: value }));
+            setLead((prev) => prev ? ({ ...prev, [field]: value } as Lead) : prev);
 
             // If updating stage, also update the nested object for display
             if (field === 'stage_id') {
                 const newStage = stages.find(s => s.id === value);
                 if (newStage) {
-                    setLead((prev: any) => ({
+                    setLead((prev) => prev ? ({
                         ...prev,
                         pipeline_stages: { id: newStage.id, name: newStage.name }
-                    }));
+                    } as Lead) : prev);
                 }
             }
 
@@ -192,7 +194,7 @@ export default function LeadDetail() {
         }
     };
 
-    const handleBulkUpdateLead = async (updates: Record<string, any>) => {
+    const handleBulkUpdateLead = async (updates: Record<string, unknown>) => {
         try {
             const { error } = await supabase
                 .from('leads')
@@ -201,7 +203,8 @@ export default function LeadDetail() {
 
             if (error) throw error;
 
-            setLead((prev: any) => {
+            setLead((prev) => {
+                if (!prev) return prev;
                 const newLead = { ...prev, ...updates };
                 if (updates.stage_id) {
                     const newStage = stages.find(s => s.id === updates.stage_id);
@@ -209,7 +212,7 @@ export default function LeadDetail() {
                         newLead.pipeline_stages = { id: newStage.id, name: newStage.name };
                     }
                 }
-                return newLead;
+                return newLead as Lead;
             });
             toast.success('Lead actualizado');
         } catch (error) {
@@ -220,6 +223,7 @@ export default function LeadDetail() {
     };
 
     const handleStageChange = (stageId: string) => {
+        if (!lead) return;
         const targetStageName = stages.find(s => s.id === stageId)?.name || '';
         const missingFields = validateLeadStageGate(lead, targetStageName);
 
@@ -242,7 +246,8 @@ export default function LeadDetail() {
         }).then();
     };
 
-    const handleGateModalSubmit = async (updates: Partial<any>) => {
+    const handleGateModalSubmit = async (updates: Partial<Lead>) => {
+        if (!lead) return;
         const { targetStageId, targetStageName } = gateModalState;
 
         await handleBulkUpdateLead({
@@ -265,7 +270,7 @@ export default function LeadDetail() {
         setIsNoteModalOpen(true);
     };
 
-    const handleEditNote = (note: any) => {
+    const handleEditNote = (note: Note) => {
         setSelectedNote(note);
         setInitialNoteTitle(note.title || '');
         // setPendingOutcome(null); // Removed as state was deleted
@@ -396,7 +401,7 @@ export default function LeadDetail() {
                 <MetricBar
                     phone={lead.phone}
                     email={lead.email}
-                    location={lead.state}
+                    location={lead.state ?? null}
                     source={lead.source}
                 />
             </div>

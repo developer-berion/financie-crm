@@ -1,13 +1,17 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { corsHeaders, getSupabaseClient, getLeadContext, safeLog, maskPhone, COMMUNICATIONS_ENABLED } from "../shared-utils.ts";
+import { COMMUNICATIONS_ENABLED, corsHeaders, getCorrelationId, getSupabaseClient, getLeadContext, logStructured, maskPhone, safeLog } from "../shared-utils.ts";
 
 serve(async (req) => {
+    const correlationId = getCorrelationId(req);
+
     if (req.method === 'OPTIONS') {
         return new Response('ok', { headers: corsHeaders })
     }
 
     if (!COMMUNICATIONS_ENABLED) {
-        console.warn('[MakeOutboundCall] Disabled via ENABLE_TWILIO_ELEVENLABS=false.');
+        logStructured('warn', 'make_outbound_call', 'communications_disabled', {
+            correlation_id: correlationId,
+        });
         return new Response(JSON.stringify({ success: true, call_id: 'DISABLED_BY_CONFIG' }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
@@ -35,7 +39,10 @@ serve(async (req) => {
 
         // 2. Check Consent (Safety guard)
         if (!lead.marketing_consent) {
-            console.warn(`Lead ${lead.id} has no marketing consent registered.`);
+            logStructured('warn', 'make_outbound_call', 'missing_marketing_consent', {
+                correlation_id: correlationId,
+                lead_id: lead.id,
+            });
         }
 
         // --- Context Preparation Logic ---
@@ -67,10 +74,14 @@ serve(async (req) => {
         }
 
         // 4. Trigger Call via ElevenLabs API
-        let rawPhone = lead.phone || '';
+        const rawPhone = lead.phone || '';
         let phone = rawPhone.replace(/\D/g, ''); 
         
         safeLog(`[MakeOutboundCall] LeadID: ${lead.id}, Phone: ${maskPhone(rawPhone)}`);
+        logStructured('info', 'make_outbound_call', 'lead_loaded', {
+            correlation_id: correlationId,
+            lead_id: lead.id,
+        });
 
         if (phone.length === 10) {
             phone = '1' + phone;
@@ -112,7 +123,12 @@ serve(async (req) => {
         const result = await response.json();
 
         if (!response.ok) {
-            console.error('ElevenLabs Error:', result);
+            logStructured('error', 'make_outbound_call', 'provider_error', {
+                correlation_id: correlationId,
+                provider: 'elevenlabs',
+                lead_id: lead.id,
+                provider_payload: result,
+            });
             throw new Error(`ElevenLabs API Error: ${result.detail?.message || result.message || JSON.stringify(result)}`);
         }
 
@@ -124,6 +140,7 @@ serve(async (req) => {
                 provider: 'elevenlabs', 
                 call_id: result.call_id,
                 agent_id: agentId,
+                correlation_id: correlationId,
                 context_sent: {
                     date: context.signup_date,
                     time: context.signup_time,
@@ -132,17 +149,33 @@ serve(async (req) => {
             }
         });
 
+        await supabase.from('integration_logs').insert({
+            provider: 'elevenlabs_outbound',
+            request_id: correlationId,
+            status: 'success',
+            message_safe: 'Outbound call accepted by provider',
+            payload_ref: {
+                lead_id: lead.id,
+                call_id: result.call_id,
+            },
+        });
+
         // 6. Link Call ID to Lead (CRITICAL for Webhook)
         await supabase.from('leads').update({
             last_call_id: result.call_id
         }).eq('id', lead.id);
 
-        return new Response(JSON.stringify({ success: true, call_id: result.call_id }), {
+        return new Response(JSON.stringify({ success: true, call_id: result.call_id, correlation_id: correlationId }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
 
-    } catch (error: any) {
-        return new Response(JSON.stringify({ error: error.message }), {
+    } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        logStructured('error', 'make_outbound_call', 'request_failed', {
+            correlation_id: correlationId,
+            error: errorMessage,
+        });
+        return new Response(JSON.stringify({ error: errorMessage, correlation_id: correlationId }), {
             status: 400,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });

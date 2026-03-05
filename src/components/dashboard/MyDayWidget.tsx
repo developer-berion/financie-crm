@@ -21,7 +21,7 @@ interface Appointment {
     id: string;
     lead_id: string | null;
     start_time: string;
-    meeting_url?: string;
+    meeting_url?: string | null;
     lead_name?: string;
 }
 

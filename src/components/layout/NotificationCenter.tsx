@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Bell, Clock, AlertTriangle, ChevronRight, Inbox } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import type { Task } from '../../types';
@@ -14,8 +14,31 @@ export default function NotificationCenter() {
     const containerRef = useRef<HTMLDivElement>(null);
     const navigate = useNavigate();
 
+    const fetchTasks = useCallback(async () => {
+        const { data } = await supabase
+            .from('tasks')
+            .select('*, leads(id, full_name)')
+            .eq('status', 'pending')
+            .order('due_at', { ascending: true })
+            .limit(20);
+
+        if (data) {
+            const typedData = data as Task[];
+            setTasks(typedData);
+            // Count overdue or due today as "urgent" for the badge
+            const urgentCount = typedData.filter(t => {
+                if (!t.due_at) return false;
+                const d = new Date(t.due_at);
+                return d < new Date() || isToday(d);
+            }).length;
+            setUnreadCount(urgentCount);
+        }
+    }, []);
+
     useEffect(() => {
-        fetchTasks();
+        const initialFetchTimer = window.setTimeout(() => {
+            void fetchTasks();
+        }, 0);
 
         // Realtime subscription for tasks
         const channel = supabase
@@ -25,14 +48,15 @@ export default function NotificationCenter() {
                 schema: 'public',
                 table: 'tasks'
             }, () => {
-                fetchTasks();
+                void fetchTasks();
             })
             .subscribe();
 
         return () => {
+            window.clearTimeout(initialFetchTimer);
             supabase.removeChannel(channel);
         };
-    }, []);
+    }, [fetchTasks]);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -46,26 +70,6 @@ export default function NotificationCenter() {
         }
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [isOpen]);
-
-    async function fetchTasks() {
-        const { data } = await supabase
-            .from('tasks')
-            .select('*, leads(id, full_name)')
-            .eq('status', 'pending')
-            .order('due_at', { ascending: true })
-            .limit(20);
-
-        if (data) {
-            setTasks(data);
-            // Count overdue or due today as "urgent" for the badge
-            const urgentCount = data.filter(t => {
-                if (!t.due_at) return false;
-                const d = new Date(t.due_at);
-                return d < new Date() || isToday(d);
-            }).length;
-            setUnreadCount(urgentCount);
-        }
-    }
 
     const handleTaskClick = (leadId: string | null) => {
         if (leadId) {

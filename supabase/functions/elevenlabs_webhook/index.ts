@@ -1,10 +1,15 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { COMMUNICATIONS_ENABLED, corsHeaders, getCorrelationId, getSupabaseClient, safeLog, verifyElevenLabsSignature } from "../shared-utils.ts";
+import { COMMUNICATIONS_ENABLED, corsHeaders, getCorrelationId, getSupabaseClient, logStructured, safeLog, verifyElevenLabsSignature } from "../shared-utils.ts";
 
 // CRM-001: Secret loaded ONLY from env var. No fallback. Fail fast.
 const ELEVENLABS_WEBHOOK_SECRET = Deno.env.get('ELEVENLABS_WEBHOOK_SECRET');
 if (!ELEVENLABS_WEBHOOK_SECRET) {
   console.error('[FATAL] ELEVENLABS_WEBHOOK_SECRET env var is not set. Webhook will reject all requests.');
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  return String(error);
 }
 
 serve(async (req) => {
@@ -35,7 +40,9 @@ serve(async (req) => {
 
     // 1. Validate Signature
     if (!signature || !(await verifyElevenLabsSignature(rawBody, signature, ELEVENLABS_WEBHOOK_SECRET))) {
-      console.error('Missing or Invalid ElevenLabs Signature');
+      logStructured('warn', 'elevenlabs_webhook', 'invalid_signature', {
+        correlation_id: correlationId,
+      });
       return new Response('Unauthorized', { status: 401 });
     }
 
@@ -89,7 +96,10 @@ serve(async (req) => {
                     // 3.1. Transcript Fallback: If missing, fetch from API
                     if (!transcript && Deno.env.get('ELEVENLABS_API_KEY')) {
                          try {
-                            console.log(`Fetching transcript from API for conversation ${body.conversation_id}`);
+                            logStructured('info', 'elevenlabs_webhook', 'fetching_transcript_api', {
+                              correlation_id: correlationId,
+                              conversation_id: body.conversation_id,
+                            });
                             const convResp = await fetch(`https://api.elevenlabs.io/v1/convai/conversations/${body.conversation_id}`, {
                                 headers: {
                                     'xi-api-key': Deno.env.get('ELEVENLABS_API_KEY') as string
@@ -106,13 +116,24 @@ serve(async (req) => {
                                 // If the original 'transcript' in body was string, we try to match.
                                 // Actually, let's just store the full detail if we can, or map it.
                                 if (convData.transcript) {
-                                     transcript = convData.transcript.map((t: any) => `${t.role}: ${t.message}`).join('\n');
+                                     transcript = convData.transcript
+                                        .map((t: { role?: string; message?: string }) => `${t.role || 'unknown'}: ${t.message || ''}`)
+                                        .join('\n');
                                 }
                             } else {
-                                console.error('Failed to fetch transcript from API', await convResp.text());
+                                logStructured('error', 'elevenlabs_webhook', 'transcript_api_failed', {
+                                  correlation_id: correlationId,
+                                  conversation_id: body.conversation_id,
+                                  status: convResp.status,
+                                  body: await convResp.text(),
+                                });
                             }
                          } catch (err) {
-                             console.error('Error fetching transcript API:', err);
+                             logStructured('error', 'elevenlabs_webhook', 'transcript_api_exception', {
+                               correlation_id: correlationId,
+                               conversation_id: body.conversation_id,
+                               error: getErrorMessage(err),
+                             });
                          }
                     }
 
@@ -132,7 +153,7 @@ serve(async (req) => {
                     await supabase.from('conversation_results').upsert(resData, { onConflict: 'conversation_id' });
 
                     // Update Lead Meta
-                    const leadUpdate: any = {};
+                    const leadUpdate: Record<string, unknown> = {};
                     if (resData.do_not_call) leadUpdate.do_not_call = true;
 
                     // AI Field Population Logic (Only if currently empty in DB)
@@ -175,7 +196,11 @@ serve(async (req) => {
 
                     // CRITICAL: Stop calling if appointment scheduled
                     if (resData.scheduled_datetime) {
-                        console.log(`Appointment scheduled for lead ${leadId} at ${resData.scheduled_datetime}. Stopping future calls.`);
+                        logStructured('info', 'elevenlabs_webhook', 'appointment_detected_stopping_calls', {
+                          correlation_id: correlationId,
+                          lead_id: leadId,
+                          scheduled_at: resData.scheduled_datetime,
+                        });
                         
                         // 1. Deactivate Call Schedules
                         await supabase.from('call_schedules')
@@ -226,10 +251,14 @@ serve(async (req) => {
       JSON.stringify({ success: true, correlation_id: correlationId }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-  } catch (error) {
-    console.error('Webhook Error:', error);
+  } catch (error: unknown) {
+    const errorMessage = getErrorMessage(error);
+    logStructured('error', 'elevenlabs_webhook', 'webhook_failed', {
+      correlation_id: correlationId,
+      error: errorMessage,
+    });
     return new Response(
-      JSON.stringify({ error: error.message, correlation_id: correlationId }),
+      JSON.stringify({ error: errorMessage, correlation_id: correlationId }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

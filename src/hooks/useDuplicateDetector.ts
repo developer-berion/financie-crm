@@ -45,9 +45,9 @@ export function useDuplicateDetector(email: string | null, phone: string, fullNa
             }
 
             setDuplicates(data || []);
-        } catch (err: any) {
+        } catch (err) {
             console.error('Duplicate detection failed:', err);
-            setError(err);
+            setError(err instanceof Error ? err : new Error(String(err)));
             setDuplicates([]);
         } finally {
             setIsChecking(false);

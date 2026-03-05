@@ -1,6 +1,6 @@
 # Deployment Guide for Hostinger
 
-**Target URL**: `http://crm.financiegroup.com/` (Subdomain root)
+**Target URL**: `https://portal.financiegroup.com/` (Subdomain root)
 
 ## Prerequisites
 - Acceso al panel de control de Hostinger (File Manager o FTP).
@@ -16,7 +16,7 @@
    This creates a `dist` folder with the static assets.
 
 2. **Upload to Hostinger**
-   - Navigate to the `public_html` folder of the subdomain `crm.financiegroup.com`.
+   - Navigate to the `public_html` folder of the subdomain `portal.financiegroup.com`.
    - **IMPORTANT**: Ensure the directory is empty (or delete old files).
    - Upload the **CONTENTS** of the `dist` folder (not the folder itself).
      - You should see `index.html`, `assets/`, and `.htaccess` in the root of the subdomain folder.

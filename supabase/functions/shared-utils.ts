@@ -6,7 +6,7 @@ import { crypto } from "https://deno.land/std@0.224.0/crypto/mod.ts";
 // Allowed origins for browser-based requests.
 // Server-to-server calls (Meta, Twilio, Calendly, Brevo webhooks) don't send Origin headers.
 const ALLOWED_ORIGINS = [
-  'https://crm.financiegroup.com',
+  'https://portal.financiegroup.com',
   'https://financiegroup.com',
   'https://www.financiegroup.com',
   'https://portal-staging.financiegroup.com',
@@ -34,7 +34,7 @@ export function getCorsHeaders(req?: Request): Record<string, string> {
 // Legacy export for backward compatibility — defaults to production origin.
 // Edge functions that handle ONLY server-to-server webhooks can use this safely.
 export const corsHeaders = {
-  'Access-Control-Allow-Origin': 'https://crm.financiegroup.com',
+  'Access-Control-Allow-Origin': 'https://portal.financiegroup.com',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-version',
   'Access-Control-Allow-Methods': 'POST, GET, OPTIONS, PUT, DELETE',
 };
@@ -85,6 +85,45 @@ export function safeLog(message: string, data?: unknown): void {
   } else {
     console.log(message, data);
   }
+}
+
+type LogLevel = 'info' | 'warn' | 'error';
+
+export function getCorrelationId(req?: Request): string {
+  const incoming =
+    req?.headers.get('x-correlation-id') ||
+    req?.headers.get('x-request-id') ||
+    req?.headers.get('cf-ray');
+
+  return incoming && incoming.trim().length > 0
+    ? incoming.trim()
+    : crypto.randomUUID();
+}
+
+export function logStructured(
+  level: LogLevel,
+  functionName: string,
+  event: string,
+  details: Record<string, unknown> = {},
+): void {
+  const payload = {
+    ts: new Date().toISOString(),
+    level,
+    function: functionName,
+    event,
+    ...sanitizeObject(details) as Record<string, unknown>,
+  };
+
+  const line = JSON.stringify(payload);
+  if (level === 'error') {
+    console.error(line);
+    return;
+  }
+  if (level === 'warn') {
+    console.warn(line);
+    return;
+  }
+  console.log(line);
 }
 
 /** Masks a phone number for safe logging: +1786****63 */
@@ -512,7 +551,7 @@ export async function sendEmail(lead: LeadContext) {
             <div class="field"><span class="label">ID:</span> ${lead.id}</div>
             
             <p style="margin-top: 20px;">
-              <a href="${Deno.env.get('APP_URL') || 'https://crm.financiegroup.com'}/leads/${lead.id}" style="background-color: #28a745; color: white; padding: 10px 15px; text-decoration: none; border-radius: 5px;">View Lead in CRM</a>
+              <a href="${Deno.env.get('APP_URL') || 'https://portal.financiegroup.com'}/leads/${lead.id}" style="background-color: #28a745; color: white; padding: 10px 15px; text-decoration: none; border-radius: 5px;">View Lead in CRM</a>
             </p>
           </div>
           <div class="footer">
@@ -603,7 +642,7 @@ export async function sendTaskReminderEmail(agent: { email: string, name: string
             </div>
             
             <p style="text-align: center;">
-              <a href="${Deno.env.get('APP_URL') || 'https://crm.financiegroup.com'}/tasks" class="btn">Gestionar en el CRM</a>
+              <a href="${Deno.env.get('APP_URL') || 'https://portal.financiegroup.com'}/tasks" class="btn">Gestionar en el CRM</a>
             </p>
           </div>
           <div class="footer">
@@ -693,7 +732,7 @@ export async function syncContactToBrevo(lead: LeadContext) {
     }
 }
 
-export async function triggerCall(leadId: string) {
+export async function triggerCall(leadId: string, correlationId?: string) {
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
 
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -714,7 +753,8 @@ export async function triggerCall(leadId: string) {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${serviceRoleKey}`,
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'x-correlation-id': correlationId || crypto.randomUUID(),
                 },
                 body: JSON.stringify({ lead_id: leadId })
             }
@@ -746,7 +786,11 @@ export async function triggerCall(leadId: string) {
  * Core orchestration logic for a lead.
  * Can be called from a Webhook, UI, or DB Trigger.
  */
-export async function orchestrateLead(supabase: SupabaseClient, lead: LeadContext) {
+export async function orchestrateLead(
+    supabase: SupabaseClient,
+    lead: LeadContext,
+    correlationId?: string,
+) {
     const leadId = lead.id;
     const phone = lead.phone;
 
@@ -779,16 +823,18 @@ export async function orchestrateLead(supabase: SupabaseClient, lead: LeadContex
     if (!emailRes.success) {
         await supabase.from('integration_logs').insert({
             provider: 'brevo',
+            request_id: correlationId,
             status: 'failure',
             message_safe: 'Failed to send email notification',
-            payload_ref: { error: emailRes.error, lead_id: leadId }
+            payload_ref: { error: emailRes.error, lead_id: leadId, correlation_id: correlationId }
         });
     } else {
             await supabase.from('integration_logs').insert({
             provider: 'brevo',
+            request_id: correlationId,
             status: 'success',
             message_safe: 'Email notification sent',
-            payload_ref: { messageId: emailRes.messageId, lead_id: leadId }
+            payload_ref: { messageId: emailRes.messageId, lead_id: leadId, correlation_id: correlationId }
         });
     }
 
@@ -799,15 +845,16 @@ export async function orchestrateLead(supabase: SupabaseClient, lead: LeadContex
         
         await supabase.from('integration_logs').insert({
             provider: 'brevo_crm',
+            request_id: correlationId,
             status: syncRes.success ? 'success' : 'failure',
             message_safe: syncRes.success ? 'Lead synced to Brevo CRM' : 'Failed to sync lead to Brevo CRM',
-            payload_ref: { error: syncRes.error, brevo_id: syncRes.id, lead_id: leadId }
+            payload_ref: { error: syncRes.error, brevo_id: syncRes.id, lead_id: leadId, correlation_id: correlationId }
         });
 
         await supabase.from('lead_events').insert({
             lead_id: leadId,
             event_type: syncRes.success ? 'brevo.synced' : 'brevo.sync_failed',
-            payload: { success: syncRes.success, error: syncRes.error, brevo_id: syncRes.id }
+            payload: { success: syncRes.success, error: syncRes.error, brevo_id: syncRes.id, correlation_id: correlationId }
         });
     }
 
@@ -822,9 +869,10 @@ export async function orchestrateLead(supabase: SupabaseClient, lead: LeadContex
     // 2. Log to integration_logs (SKIP or log skipped)
     await supabase.from('integration_logs').insert({
         provider: 'twilio',
+        request_id: correlationId,
         status: 'skipped',
         message_safe: `Immediate SMS (DISABLED)`,
-        payload_ref: { sms_sid: 'SKIPPED', reason: 'verification_process' }
+        payload_ref: { sms_sid: 'SKIPPED', reason: 'verification_process', correlation_id: correlationId }
     });
 
     // 3. Log to specific sms_events table (SKIP)
@@ -839,7 +887,7 @@ export async function orchestrateLead(supabase: SupabaseClient, lead: LeadContex
     await supabase.from('lead_events').insert({
         lead_id: leadId,
         event_type: 'sms.skipped_verification',
-        payload: { reason: 'verification_disable' }
+        payload: { reason: 'verification_disable', correlation_id: correlationId }
     });
 
     // 5. Schedule Call if SMS success (Always true now since we mock success)
@@ -877,14 +925,14 @@ export async function orchestrateLead(supabase: SupabaseClient, lead: LeadContex
         await supabase.from('lead_events').insert({
             lead_id: leadId,
             event_type: 'call.scheduling_skipped',
-            payload: { reason: 'automatic_call_disabled_by_user' }
+            payload: { reason: 'automatic_call_disabled_by_user', correlation_id: correlationId }
         });
         console.log(`[Orchestrate] Automatic call scheduling is DISABLED.`);
     } else {
         await supabase.from('lead_events').insert({
             lead_id: leadId,
             event_type: 'call.scheduling_skipped',
-            payload: { reason: 'sms_failure', error: smsResult.error }
+            payload: { reason: 'sms_failure', error: smsResult.error, correlation_id: correlationId }
         });
     }
 

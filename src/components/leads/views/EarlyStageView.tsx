@@ -1,14 +1,14 @@
 import QualificationPanel from '../../QualificationPanel';
 import { Edit3, Plus, FileText, ExternalLink } from 'lucide-react';
 import { formatLeadTime } from '../../../lib/utils';
-import type { Lead } from '../../../types';
+import type { Lead, Note } from '../../../types';
 
 interface EarlyStageViewProps {
     lead: Lead;
-    notes: any[];
+    notes: Note[];
     onUpdateLead: (field: string, value: unknown) => Promise<void>;
     onNewNote: () => void;
-    onEditNote: (note: any) => void;
+    onEditNote: (note: Note) => void;
 }
 
 export default function EarlyStageView({ lead, notes, onUpdateLead, onNewNote, onEditNote }: EarlyStageViewProps) {
@@ -16,10 +16,10 @@ export default function EarlyStageView({ lead, notes, onUpdateLead, onNewNote, o
         <div className="space-y-8 animate-in fade-in duration-500">
             {/* Qualification Panel */}
             <QualificationPanel
-                objective={(lead as any).main_objective}
-                income={(lead as any).stable_income}
-                health={(lead as any).health_condition}
-                botVerification={(lead as any).bot_verification}
+                objective={lead.main_objective || null}
+                income={lead.stable_income || null}
+                health={lead.health_condition || null}
+                botVerification={lead.bot_verification || null}
                 onUpdate={onUpdateLead}
             />
 
