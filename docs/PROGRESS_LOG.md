@@ -4,12 +4,15 @@
   - Analisis de divergencia entre staging y codex-version (remoto y local).
   - Definicion de runbook exacto de alineacion segura sin romper hotfix de staging.
   - Documentacion del plan operativo en docs/reports/STAGING_CODEX_ALIGNMENT_PLAN_2026-03-05.md.
+  - Ejecucion completa del plan de alineacion en rama `codex/staging-align-20260305`.
+  - Promocion realizada a `staging` y fast-forward aplicado a `codex-version`.
+  - Convergencia final validada en local/remoto con SHA comun `1bf8cf96f76a761e171454d8a50bdc11d1c02626`.
 - **Decisiones tomadas:** [Estrategia de alineacion bidireccional staging <-> codex-version](./DECISIONS.md)
 - **Bloqueos:**
-  - `test:smoke` en estado rojo local por imports faltantes (`useAuth`, `authContextCore`), debe resolverse antes de promocion.
+  - Ninguno activo.
 - **Proximo:**
-  - Ejecutar rama de integracion codex/staging-align-20260305 y gates completos.
-  - Merge a staging y fast-forward de codex-version para convergencia 100%.
+  - Mantener como base unica de trabajo `staging` y `codex-version` en paralelo de SHAs.
+  - Abrir PR de limpieza para remover dependencias de carpetas temporales en tooling si aparecen nuevas rutas espejo.
 
 ## 2026-02-27
 - **Hecho:**

@@ -4,6 +4,25 @@ Fecha: 2026-03-05
 Owner: Release Engineering (Codex)  
 Objetivo: mover la ultima mejora de `codex-version` a `staging`, mantener hotfixes de `staging`, y dejar ramas remotas + locales 100% alineadas.
 
+## Estado de ejecucion
+
+- Estado: COMPLETADO
+- Rama de integracion ejecutada: `codex/staging-align-20260305`
+- SHA final alineado (`staging`, `codex-version`, `origin/staging`, `origin/codex-version`):
+  - `1bf8cf96f76a761e171454d8a50bdc11d1c02626`
+- Verificacion de convergencia:
+  - `git rev-list --left-right --count origin/staging...origin/codex-version` => `0 0`
+  - `git rev-list --left-right --count staging...codex-version` => `0 0`
+- Gates ejecutados en verde:
+  - `npm run scan:secrets`
+  - `npm run lint`
+  - `npm run test:smoke`
+  - `npm run test -- --run`
+  - `npm run verify:staging-target`
+- Validacion funcional:
+  - Login en staging OK.
+  - Requests Supabase del dashboard en `200`.
+
 ## 1) Estado actual verificado
 
 - `origin/staging` -> `8735d02`
