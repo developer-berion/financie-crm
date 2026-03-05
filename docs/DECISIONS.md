@@ -1,4 +1,29 @@
 # DECISIONS
+## 2026-03-05 - Estrategia de alineacion bidireccional staging <-> codex-version
+**Contexto:**
+Se requiere mover la ultima mejora de codex-version a staging sin romper hotfixes operativos ya aplicados en staging, y dejar ramas remotas y locales 100% alineadas.
+
+**Decision:**
+Aplicar una estrategia en 2 pasos:
+1. Integrar origin/codex-version sobre origin/staging en rama temporal con gates obligatorios.
+2. Tras merge a staging, hacer fast-forward de codex-version hacia origin/staging para convergencia total.
+
+**Alternativas:**
+1. Fast-forward directo de staging a codex-version. Rechazada: riesgo de saltar validaciones de hotfix en staging.
+2. Reset de ramas para igualar SHAs. Rechazada: estrategia destructiva y de alto riesgo operativo.
+
+**Por que:**
+- Preserva continuidad de staging como entorno de release.
+- Reduce riesgo de regresion aplicando gates antes de promocion.
+- Garantiza convergencia de historia y contenido entre ramas.
+
+**Impacto:**
+- Requiere una rama de integracion adicional y PR controlado.
+- Exige evidencia de gates (`scan:secrets`, `test:smoke`, `verify:staging-target`) antes de merge.
+
+**Seguimiento / TODO:**
+- Ejecutar runbook documentado en docs/reports/STAGING_CODEX_ALIGNMENT_PLAN_2026-03-05.md.
+- Registrar SHA final comun en PROGRESS_LOG.md.
 
 ## 2026-01-21 — Arquitectura Serverless en Hostinger + Supabase
 **Contexto:**
@@ -81,3 +106,4 @@ Se requería un sistema de gestión de tareas que permitiera creación manual y 
 **Impacto:**
 - **UX**: Incremento en la proactividad del agente.
 - **Database**: Adición de una columna JSONB (`reminders_sent`) para evitar duplicidad de correos ante posibles reintentos del cron.
+
