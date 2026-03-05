@@ -1,9 +1,39 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { corsHeaders, getSupabaseClient, verifyTwilioSignature, safeLog } from "../shared-utils.ts";
+import { corsHeaders, getCorrelationId, getSupabaseClient, logStructured, safeLog, verifyTwilioSignature } from "../shared-utils.ts";
 
 const CALL_REJECTED_THRESHOLD_SECONDS = 10;
 
+interface CallEventUpdate {
+  lead_id: string;
+  call_sid: string;
+  status_raw: string;
+  duration_seconds: number;
+  last_callback_payload: Record<string, string>;
+  status_crm?: 'EXITOSA' | 'SIN_RESPUESTA' | 'RECHAZADA';
+  answered_at?: string;
+  ended_at?: string;
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  return String(error);
+}
+
+function normalizePayload(payload: unknown): Record<string, string> {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    return {};
+  }
+
+  const normalized: Record<string, string> = {};
+  Object.entries(payload as Record<string, unknown>).forEach(([key, value]) => {
+    normalized[key] = value === null || value === undefined ? '' : String(value);
+  });
+  return normalized;
+}
+
 serve(async (req) => {
+  const correlationId = getCorrelationId(req);
+
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
@@ -12,12 +42,12 @@ serve(async (req) => {
     const supabase = getSupabaseClient();
     const contentType = req.headers.get('content-type');
     
-    let body: Record<string, any>;
+    let body: Record<string, string>;
     if (contentType?.includes('application/x-www-form-urlencoded')) {
       const formData = await req.formData();
-      body = Object.fromEntries(formData.entries()) as Record<string, any>;
+      body = normalizePayload(Object.fromEntries(formData.entries()));
     } else {
-      body = await req.json();
+      body = normalizePayload(await req.json());
     }
 
     // CRM-002: Validate Twilio Signature (ENABLED)
@@ -27,23 +57,20 @@ serve(async (req) => {
 
     if (authToken) {
         if (!signature || !(await verifyTwilioSignature(requestUrl, body, signature, authToken))) {
-            console.warn('[Call Webhook] Missing or Invalid Twilio Signature. Rejecting request.');
+            logStructured('warn', 'call_webhook', 'invalid_twilio_signature', { correlation_id: correlationId });
             return new Response('Forbidden', { status: 403, headers: corsHeaders });
         }
     } else {
-        console.warn('[Call Webhook] Twilio auth token not configured. Signature verification skipped.');
+        logStructured('warn', 'call_webhook', 'signature_verification_skipped', { correlation_id: correlationId });
     }
 
     safeLog('[Call Webhook] Received', { CallSid: body.CallSid, CallStatus: body.CallStatus });
 
     const { 
       CallSid, 
-      From, 
       To, 
       CallStatus, 
-      Duration,
-      SequenceNumber,
-      ErrorCode
+      Duration
     } = body;
 
     const status = CallStatus || 'unknown';
@@ -52,6 +79,7 @@ serve(async (req) => {
     // 1. Log the integration event
     await supabase.from('integration_logs').insert({
       provider: 'twilio_call',
+      request_id: correlationId,
       status: status,
       payload_ref: body,
       message_safe: `Call status update: ${status}`
@@ -98,7 +126,7 @@ serve(async (req) => {
 
     if (leadId) {
         // Upsert into call_events
-        const eventData: any = {
+        const eventData: CallEventUpdate = {
             lead_id: leadId,
             call_sid: CallSid,
             status_raw: status,
@@ -152,7 +180,8 @@ serve(async (req) => {
                     status: status, 
                     description: timelineDescription,
                     duration: duration,
-                    call_sid: CallSid
+                    call_sid: CallSid,
+                    correlation_id: correlationId,
                 }
              });
         }
@@ -210,7 +239,11 @@ serve(async (req) => {
                  }
 
                  if (nextAttempt) {
-                     console.log(`Rescheduling lead ${leadId} to ${nextAttempt.toISOString()}`);
+                     logStructured('info', 'call_webhook', 'call_rescheduled', {
+                        correlation_id: correlationId,
+                        lead_id: leadId,
+                        next_attempt_at: nextAttempt.toISOString(),
+                     });
                      
                      // Upsert schedule
                      await supabase.from('call_schedules').update({
@@ -234,7 +267,8 @@ serve(async (req) => {
                         payload: { 
                             reason: 'retry_logic', 
                             trigger_status: status,
-                            scheduled_to: nextAttempt.toISOString() 
+                            scheduled_to: nextAttempt.toISOString(),
+                            correlation_id: correlationId,
                         }
                      });
                  }
@@ -248,13 +282,16 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ success: true }),
+      JSON.stringify({ success: true, correlation_id: correlationId }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error('Webhook Error:', error);
+    logStructured('error', 'call_webhook', 'fatal_error', {
+      correlation_id: correlationId,
+      error: getErrorMessage(error),
+    });
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: getErrorMessage(error), correlation_id: correlationId }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

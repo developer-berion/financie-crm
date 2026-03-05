@@ -1,27 +1,31 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { CheckCircle, Circle, AlertCircle, Plus } from 'lucide-react';
 import { format } from 'date-fns';
 import TaskModal from '../components/tasks/TaskModal';
+import type { Task } from '../types';
 
 export default function Tasks() {
-    const [tasks, setTasks] = useState<any[]>([]);
+    const [tasks, setTasks] = useState<Task[]>([]);
     const [loading, setLoading] = useState(true);
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
 
-    useEffect(() => {
-        fetchTasks();
-    }, []);
-
-    async function fetchTasks() {
+    const fetchTasks = useCallback(async () => {
         setLoading(true);
         const { data } = await supabase
             .from('tasks')
             .select('*, leads(full_name)')
             .order('due_at', { ascending: true });
-        if (data) setTasks(data);
+        if (data) setTasks(data as Task[]);
         setLoading(false);
-    }
+    }, []);
+
+    useEffect(() => {
+        const initialFetchTimer = window.setTimeout(() => {
+            void fetchTasks();
+        }, 0);
+        return () => window.clearTimeout(initialFetchTimer);
+    }, [fetchTasks]);
 
     async function toggleTask(id: string, currentStatus: string) {
         const newStatus = currentStatus === 'completed' ? 'pending' : 'completed';
@@ -32,7 +36,7 @@ export default function Tasks() {
             completed_at: completedAt
         }).eq('id', id);
 
-        fetchTasks();
+        void fetchTasks();
     }
 
     const pendingTasks = tasks.filter(t => t.status !== 'completed').length;

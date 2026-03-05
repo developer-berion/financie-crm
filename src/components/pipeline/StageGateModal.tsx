@@ -20,7 +20,7 @@ export function StageGateModal({
     missingFields,
     onSubmit
 }: StageGateModalProps) {
-    const [formData, setFormData] = useState<Record<string, any>>({});
+    const [formData, setFormData] = useState<Record<string, string | number>>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
     const rule = STAGE_GATES[targetStageName];
 
@@ -53,7 +53,7 @@ export function StageGateModal({
         }
     };
 
-    const handleFieldChange = (field: string, value: any) => {
+    const handleFieldChange = (field: string, value: string | number) => {
         setFormData(prev => ({ ...prev, [field]: value }));
     };
 

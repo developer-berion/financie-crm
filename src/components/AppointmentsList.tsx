@@ -2,12 +2,30 @@
 import { Calendar, ExternalLink, Clock, CheckCircle, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import type { LeadEvent } from '../types';
+
+interface AppointmentEventPayload {
+    provider?: string;
+    start_time?: string;
+    status?: string;
+    name?: string;
+    uri?: string;
+    scheduled_event?: { start_time?: string };
+    [key: string]: unknown;
+}
+
+interface AppointmentEvent extends LeadEvent {
+    payload: AppointmentEventPayload | null;
+}
 
 interface AppointmentsListProps {
-    events: any[];
+    events: AppointmentEvent[];
 }
 
 export default function AppointmentsList({ events }: AppointmentsListProps) {
+    const getStartTime = (event: AppointmentEvent): string | null =>
+        event.payload?.start_time || event.payload?.scheduled_event?.start_time || null;
+
     // Filter for appointments
     const appointments = events.filter(e =>
         e.event_type === 'appointment.scheduled' ||
@@ -18,12 +36,12 @@ export default function AppointmentsList({ events }: AppointmentsListProps) {
     // If user wants history, we can remove this. But usually sidebars show upcoming.
     const futureAppointments = appointments
         .filter(e => {
-            const start = e.payload?.start_time || e.payload?.scheduled_event?.start_time;
+            const start = getStartTime(e);
             return start && new Date(start) > new Date();
         })
         .sort((a, b) => {
-            const dateA = new Date(a.payload?.start_time || a.payload?.scheduled_event?.start_time);
-            const dateB = new Date(b.payload?.start_time || b.payload?.scheduled_event?.start_time);
+            const dateA = getStartTime(a) ? new Date(getStartTime(a) as string) : new Date(0);
+            const dateB = getStartTime(b) ? new Date(getStartTime(b) as string) : new Date(0);
             return dateA.getTime() - dateB.getTime();
         });
 

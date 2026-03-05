@@ -5,7 +5,7 @@ import { getStatusConfig } from '../../lib/constants';
 
 interface StageTrackerProps {
     stages: PipelineStage[];
-    currentStageId: string;
+    currentStageId: string | null;
     onStageChange: (stageId: string) => void;
 }
 

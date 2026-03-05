@@ -1,10 +1,40 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { User, Phone, Mail, Calendar, ExternalLink, Clock } from 'lucide-react';
 import { cn } from '../lib/utils';
 import SyncCalendlyButton from '../components/SyncCalendlyButton';
 import Breadcrumb from '../components/Breadcrumb';
+
+interface CalendlyQuestionAnswer {
+    question: string;
+    answer: string;
+}
+
+interface AgentCalendlyEvent {
+    name?: string;
+    status?: string;
+    start_time: string;
+    end_time: string;
+    uri: string;
+    invitee_details?: {
+        name?: string;
+        email?: string;
+        questions_and_answers?: CalendlyQuestionAnswer[];
+    };
+}
+
+interface AgentDetailData {
+    id: string;
+    full_name: string;
+    email: string;
+    phone_number: string;
+    created_at: string;
+    video_duration_seconds?: number | null;
+    video_max_watched_seconds?: number | null;
+    video_started_at?: string | null;
+    calendly_events?: AgentCalendlyEvent[] | null;
+}
 
 export default function AgentDetail() {
     const { id } = useParams<{ id: string }>();
@@ -14,34 +44,37 @@ export default function AgentDetail() {
         const secs = seconds % 60;
         return `${mins}m ${secs}s`;
     };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const [agent, setAgent] = useState<any>(null);
+    const [agent, setAgent] = useState<AgentDetailData | null>(null);
     const [loading, setLoading] = useState(true);
 
+    const fetchAgentData = useCallback(async () => {
+        setLoading(true);
+        if (!id) return;
+
+        const { data } = await supabase.from('agentes').select('*').eq('id', id).single();
+        if (data) setAgent(data as AgentDetailData);
+        setLoading(false);
+    }, [id]);
+
     useEffect(() => {
-        if (id) fetchAgentData();
+        if (!id) return;
+        const initialFetchTimer = window.setTimeout(() => {
+            void fetchAgentData();
+        }, 0);
 
         // Realtime updates
         const subscription = supabase
             .channel(`agent_${id}`)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'agentes', filter: `id=eq.${id}` }, (payload) => {
-                setAgent(payload.new);
+                setAgent(payload.new as AgentDetailData);
             })
             .subscribe();
 
         return () => {
+            window.clearTimeout(initialFetchTimer);
             subscription.unsubscribe();
         };
-    }, [id]);
-
-    async function fetchAgentData() {
-        setLoading(true);
-        if (!id) return;
-
-        const { data } = await supabase.from('agentes').select('*').eq('id', id).single();
-        if (data) setAgent(data);
-        setLoading(false);
-    }
+    }, [id, fetchAgentData]);
 
     if (loading) return <div>Cargando...</div>;
     if (!agent) return <div>Agente no encontrado</div>;
@@ -133,8 +166,7 @@ export default function AgentDetail() {
                     <div>
                         {events.length > 0 ? (
                             <div className="divide-y divide-gray-100">
-                                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                                {events.map((evt: any, idx: number) => (
+                                {events.map((evt, idx: number) => (
                                     <div key={idx} className="p-6 hover:bg-gray-50/50 transition-colors">
                                         <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
                                             <div>
@@ -182,7 +214,7 @@ export default function AgentDetail() {
                                                 {/* Questions and Answers */}
                                                 {evt.invitee_details.questions_and_answers && evt.invitee_details.questions_and_answers.length > 0 && (
                                                     <div className="mt-2 space-y-1">
-                                                        {evt.invitee_details.questions_and_answers.map((qa: any, qIdx: number) => (
+                                                        {evt.invitee_details.questions_and_answers.map((qa, qIdx: number) => (
                                                             <div key={qIdx} className="text-xs">
                                                                 <span className="font-semibold text-gray-500">{qa.question}:</span> <span className="text-gray-700">{qa.answer}</span>
                                                             </div>

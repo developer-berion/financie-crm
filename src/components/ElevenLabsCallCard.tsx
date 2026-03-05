@@ -8,7 +8,7 @@ interface Conversation {
     conversation_id: string;
     transcript: string;
     summary: string;
-    outcome: any;
+    outcome: unknown;
     scheduled_datetime: string | null;
     scheduled_channel: string | null;
     created_at: string;

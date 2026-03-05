@@ -1,12 +1,12 @@
 import { Edit3, Plus, CheckCircle, FileSignature, Landmark } from 'lucide-react';
 import { formatLeadTime } from '../../../lib/utils';
-import type { Lead } from '../../../types';
+import type { Lead, Note } from '../../../types';
 
 interface LateStageViewProps {
     lead: Lead;
-    notes: any[];
+    notes: Note[];
     onNewNote: () => void;
-    onEditNote: (note: any) => void;
+    onEditNote: (note: Note) => void;
     onUpdateLead: (field: string, value: unknown) => Promise<void>;
 }
 
@@ -56,15 +56,15 @@ export default function LateStageView({ lead, notes, onNewNote, onEditNote, onUp
                     <div className="p-5 space-y-4 text-sm">
                         <div className="flex justify-between items-center py-2 border-b border-gray-50">
                             <span className="text-gray-500">Razón Social</span>
-                            <span className="font-medium text-gray-900">{(lead.billing_info as any)?.entity_name || 'Pendiente'}</span>
+                            <span className="font-medium text-gray-900">{lead.billing_info?.entity_name || 'Pendiente'}</span>
                         </div>
                         <div className="flex justify-between items-center py-2 border-b border-gray-50">
                             <span className="text-gray-500">RUT / ID Fiscal</span>
-                            <span className="font-medium font-mono text-gray-900">{(lead.billing_info as any)?.tax_id || 'Pendiente'}</span>
+                            <span className="font-medium font-mono text-gray-900">{lead.billing_info?.tax_id || 'Pendiente'}</span>
                         </div>
                         <div className="flex justify-between items-center py-2">
                             <span className="text-gray-500">Método de Pago</span>
-                            <span className="font-medium text-gray-900">{(lead.billing_info as any)?.payment_method || 'Pendiente'}</span>
+                            <span className="font-medium text-gray-900">{lead.billing_info?.payment_method || 'Pendiente'}</span>
                         </div>
                         <button className="w-full mt-2 text-xs font-bold text-brand-primary border border-brand-primary/20 bg-brand-primary/5 py-2 rounded-lg hover:bg-brand-primary/10 transition-colors">
                             Actualizar Datos

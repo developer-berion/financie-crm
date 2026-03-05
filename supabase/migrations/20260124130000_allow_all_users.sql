@@ -5,4 +5,4 @@ BEGIN
   -- Allow any user with a valid session (authenticated role)
   RETURN (auth.role() = 'authenticated');
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_catalog;

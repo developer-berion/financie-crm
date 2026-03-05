@@ -92,6 +92,7 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
+DROP TRIGGER IF EXISTS update_jobs_updated_at ON public.jobs;
 CREATE TRIGGER update_jobs_updated_at
     BEFORE UPDATE ON public.jobs
     FOR EACH ROW

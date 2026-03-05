@@ -45,15 +45,15 @@ const defaultConfig = { icon: CircleDot, color: 'text-gray-400 bg-gray-50', labe
 function getEventDescription(event: LeadEvent): string {
     const config = eventConfig[event.event_type] || defaultConfig;
     const leadName = event.lead_name || 'Lead';
+    const payload = event.payload as { to?: string; analysis?: { summary?: string } } | null;
 
-    if (event.event_type === 'pipeline.stage_changed' && event.payload?.to) {
-        return `${leadName} → ${event.payload.to}`;
+    if (event.event_type === 'pipeline.stage_changed' && payload?.to) {
+        return `${leadName} → ${payload.to}`;
     }
     if (event.event_type === 'call.completed' && event.payload?.status) {
         return `${config.label} — ${leadName}`;
     }
-    if (event.event_type === 'conversation.completed' && (event.payload as Record<string, any>)?.analysis?.summary) {
-        const payload = event.payload as Record<string, any>;
+    if (event.event_type === 'conversation.completed' && payload?.analysis?.summary) {
         const summary = payload.analysis.summary;
         return `IA: ${summary.length > 60 ? summary.substring(0, 60) + '...' : summary}`;
     }

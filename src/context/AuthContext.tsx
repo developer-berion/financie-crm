@@ -1,16 +1,7 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import type { User, Session } from '@supabase/supabase-js';
+import React, { useEffect, useState } from 'react';
+import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
-
-interface AuthContextType {
-    user: User | null;
-    session: Session | null;
-    loading: boolean;
-    signIn: (email: string) => Promise<{ error: any }>;
-    signOut: () => Promise<void>;
-}
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+import { AuthContext } from './authContextCore';
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
@@ -37,7 +28,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return () => subscription.unsubscribe();
     }, []);
 
-    const signIn = async (_email: string) => {
+    const signIn = async () => {
         // Only email/password for this MVP
         // Pass logic is handled by component calling supabase.auth.signInWithPassword
         return { error: null };
@@ -57,11 +48,3 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
-
-export const useAuth = () => {
-    const context = useContext(AuthContext);
-    if (context === undefined) {
-        throw new Error('useAuth must be used within an AuthProvider');
-    }
-    return context;
-};

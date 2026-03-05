@@ -19,7 +19,7 @@ export default function LeadQuickAdd({ onLeadAdded }: { onLeadAdded: () => void 
 
         if (parts.length > 1) {
             const lastPart = parts[parts.length - 1];
-            if (/^[\d+\-\(\)]+$/.test(lastPart)) {
+            if (/^[\d+()-]+$/.test(lastPart)) {
                 phone = lastPart;
                 name = parts.slice(0, -1).join(' ');
             }

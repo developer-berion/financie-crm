@@ -1,5 +1,24 @@
 import { describe, it, expect } from 'vitest';
 import { validateLeadStageGate, STAGE_GATES } from './stage-gates';
+import type { Lead } from '../types';
+
+function makeLead(overrides: Partial<Lead> = {}): Lead {
+    return {
+        id: 'lead-test-id',
+        full_name: 'Test Lead',
+        phone: '+10000000000',
+        email: 'test@example.com',
+        source: 'web',
+        meta_lead_id: null,
+        status: 'new',
+        stage_id: null,
+        do_not_call: false,
+        marketing_consent: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        ...overrides,
+    };
+}
 
 describe('STAGE_GATES configuration', () => {
     it('defines rules for "Propuesta" stage', () => {
@@ -24,24 +43,24 @@ describe('STAGE_GATES configuration', () => {
 describe('validateLeadStageGate', () => {
     describe('Propuesta stage', () => {
         it('returns empty array when estimated_value is present and > 0', () => {
-            const lead = { estimated_value: 5000 };
+            const lead = makeLead({ estimated_value: 5000 });
             expect(validateLeadStageGate(lead, 'Propuesta')).toEqual([]);
         });
 
         it('returns ["estimated_value"] when value is 0', () => {
-            const lead = { estimated_value: 0 };
+            const lead = makeLead({ estimated_value: 0 });
             expect(validateLeadStageGate(lead, 'Propuesta')).toEqual(['estimated_value']);
         });
     });
 
     describe('Cerrado Ganado stage', () => {
         it('returns empty array when all fields are present', () => {
-            const lead = {
+            const lead = makeLead({
                 contract_details: {
                     contract_signed: 'true',
                     contract_url: 'https://example.com/contract.pdf'
                 }
-            };
+            });
             expect(validateLeadStageGate(lead, 'Cerrado Ganado')).toEqual([]);
         });
     });

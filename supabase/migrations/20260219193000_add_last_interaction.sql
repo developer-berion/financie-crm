@@ -17,7 +17,7 @@ BEGIN
     END IF;
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_catalog;
 
 -- Create Trigger on lead_events
 DROP TRIGGER IF EXISTS on_lead_event_created ON public.lead_events;

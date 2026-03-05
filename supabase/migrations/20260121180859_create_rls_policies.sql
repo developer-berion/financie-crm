@@ -28,7 +28,7 @@ begin
     and value = (auth.jwt() ->> 'email')
   );
 end;
-$$ language plpgsql security definer;
+$$ language plpgsql security definer set search_path = public, pg_catalog;
 
 -- Policies
 create policy "Owner Access Leads" on public.leads for all using (public.is_allowed_user());

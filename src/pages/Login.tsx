@@ -25,7 +25,7 @@ export default function Login() {
             setError(error.message);
             setLoading(false);
         } else {
-            loading && setLoading(false);
+            setLoading(false);
             navigate('/');
         }
     };

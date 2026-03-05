@@ -26,11 +26,13 @@ const PRIORITIES = [
     { value: 'high', label: 'Alta', color: 'bg-red-50 text-red-700' }
 ];
 
+type PriorityValue = (typeof PRIORITIES)[number]['value'];
+
 export default function TaskModal({ isOpen, onClose, leadId, onTaskCreated }: TaskModalProps) {
     const [loading, setLoading] = useState(false);
     const [title, setTitle] = useState('');
     const [type, setType] = useState('call');
-    const [priority, setPriority] = useState<'low' | 'med' | 'high'>('med');
+    const [priority, setPriority] = useState<PriorityValue>('med');
     const [dueAt, setDueAt] = useState('');
 
     if (!isOpen) return null;
@@ -64,9 +66,10 @@ export default function TaskModal({ isOpen, onClose, leadId, onTaskCreated }: Ta
             setType('call');
             setPriority('med');
             setDueAt('');
-        } catch (error: any) {
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
             console.error('Error creating task:', error);
-            toast.error('Error al crear la tarea: ' + error.message);
+            toast.error('Error al crear la tarea: ' + message);
         } finally {
             setLoading(false);
         }
@@ -116,7 +119,7 @@ export default function TaskModal({ isOpen, onClose, leadId, onTaskCreated }: Ta
                                     <button
                                         key={p.value}
                                         type="button"
-                                        onClick={() => setPriority(p.value as any)}
+                                        onClick={() => setPriority(p.value)}
                                         className={cn(
                                             "flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all",
                                             priority === p.value ? p.color + " shadow-sm" : "text-gray-400 hover:text-gray-600"

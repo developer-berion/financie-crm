@@ -1,12 +1,12 @@
 import { Edit3, Plus, FileText, Briefcase } from 'lucide-react';
 import { formatLeadTime } from '../../../lib/utils';
-import type { Lead } from '../../../types';
+import type { Lead, Note } from '../../../types';
 
 interface MidStageViewProps {
     lead: Lead;
-    notes: any[];
+    notes: Note[];
     onNewNote: () => void;
-    onEditNote: (note: any) => void;
+    onEditNote: (note: Note) => void;
 }
 
 export default function MidStageView({ lead, notes, onNewNote, onEditNote }: MidStageViewProps) {
@@ -29,7 +29,7 @@ export default function MidStageView({ lead, notes, onNewNote, onEditNote }: Mid
                         <div className="space-y-2 p-4 bg-gray-50 rounded-xl border border-gray-100">
                             <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Necesidad Principal</label>
                             <div className="text-sm font-medium text-gray-900">
-                                {(lead as any).main_objective || 'No especificado'}
+                                {lead.main_objective || 'No especificado'}
                             </div>
                         </div>
                         <div className="space-y-2 p-4 bg-gray-50 rounded-xl border border-gray-100">

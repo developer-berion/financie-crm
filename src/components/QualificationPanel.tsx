@@ -6,7 +6,7 @@ interface QualificationPanelProps {
     income: string | null;
     health: string | null;
     botVerification: string | null;
-    onUpdate: (field: string, value: any) => void;
+    onUpdate: (field: string, value: unknown) => void;
 }
 
 export default function QualificationPanel({ objective, income, health, botVerification, onUpdate }: QualificationPanelProps) {

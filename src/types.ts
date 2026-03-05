@@ -1,3 +1,21 @@
+export interface LeadBillingInfo {
+  entity_name?: string | null;
+  tax_id?: string | null;
+  payment_method?: string | null;
+  [key: string]: unknown;
+}
+
+export interface LeadContractDetails {
+  contract_signed?: 'true' | 'false';
+  contract_url?: string;
+  [key: string]: unknown;
+}
+
+export interface LeadPipelineStage {
+  id?: string;
+  name: string;
+}
+
 export interface Lead {
   id: string;
   full_name: string;
@@ -23,9 +41,15 @@ export interface Lead {
   last_interaction_at?: string; // New field
   expected_close_date?: string | null;
   priority?: 'High' | 'Medium' | 'Low';
-  billing_info?: any;
-  contract_details?: Record<string, any>;
-  pipeline_stages?: { name: string } | { name: string }[] | null;
+  main_objective?: string | null;
+  stable_income?: string | null;
+  health_condition?: string | null;
+  bot_verification?: string | null;
+  signup_date?: string | null;
+  signup_time?: string | null;
+  billing_info?: LeadBillingInfo | null;
+  contract_details?: LeadContractDetails | null;
+  pipeline_stages?: LeadPipelineStage | LeadPipelineStage[] | null;
 }
 
 export interface PipelineStage {
@@ -53,6 +77,16 @@ export interface ConversationResult {
   created_at: string;
 }
 
+export interface Note {
+  id: string;
+  lead_id: string;
+  title: string;
+  content: string;
+  created_at: string;
+  updated_at?: string;
+  archived: boolean;
+}
+
 export interface Task {
   id: string;
   lead_id: string | null;
@@ -62,8 +96,8 @@ export interface Task {
   priority: 'low' | 'med' | 'high';
   status: 'pending' | 'completed';
   assigned_to?: string | null;
-  reminders_sent?: { '24h': boolean; '1h': boolean };
+  reminders_sent?: Record<'24h' | '1h', boolean | string>;
   created_at: string;
   completed_at: string | null;
-  leads?: { full_name: string };
+  leads?: { id?: string; full_name: string } | null;
 }

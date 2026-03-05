@@ -27,7 +27,7 @@ create or replace function public.get_pipeline_leakage(
     current_leads bigint,
     entered_leads bigint,
     avg_days_in_stage numeric
-) language plpgsql security definer as $$
+ ) language plpgsql security definer set search_path = public, pg_catalog as $$
 begin
     return query
     with lead_filter as (
@@ -86,7 +86,7 @@ create or replace function public.get_agent_performance(
     efficiency_score numeric,
     total_revenue numeric,
     avg_time_to_close numeric
-) language plpgsql security definer as $$
+) language plpgsql security definer set search_path = public, pg_catalog as $$
 begin
     return query
     with base as (
@@ -122,7 +122,7 @@ create or replace function public.get_revenue_forecast(
     probability_pct int,
     total_value numeric,
     weighted_value numeric
-) language plpgsql security definer as \$\$
+) language plpgsql security definer set search_path = public, pg_catalog as \$\$
 begin
     return query
     select 
